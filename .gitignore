@@ -1,0 +1,11 @@
+.env
+target/
+node_modules/
+dist/
+.angular/
+*.log
+.idea/
+.vscode/
+bash.exe.stackdump
+.terraform/
+*.tfstate*
