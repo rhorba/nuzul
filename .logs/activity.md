@@ -51,3 +51,7 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Local Trivy: api 0 CRITICAL, web 0 CRITICAL after patch. api/mvnw +x.
 - SonarCloud (browser, owner-authorised): project rhorba_nuzul imported, Automatic Analysis OFF. SONAR_TOKEN secret: owner to set.
 - README with Mermaid architecture diagram.
+
+### [2026-11-17] [EXECUTE] — 0.4 RAM measured
+- docker stats (idle, warm): api 389 MB, web 8, PG 48, Redis 4, ES 1,044, Kafka 433, Keycloak 768 → app stack ≈ 3.1 GB.
+- Budgets revised: ES 1 → 1.25 GB, Keycloak 512 → 768 MB; plan ≈ 6 GB of 24 GB. k3s budget confirmed (docs/devops-nuzul.md).
