@@ -3,7 +3,7 @@
 Owner: Software Architect · Status: DRAFT
 
 ## 1. Overview
-A monorepo with two deployables: `api/` (Spring Boot 3, Java 21, Maven wrapper) and `web/` (Angular SPA served
+A monorepo with two deployables: `api/` (Spring Boot 4.1, Java 21, Maven wrapper) and `web/` (Angular SPA served
 by nginx). The infrastructure lives in `deploy/helm/nuzul` and `infra/terraform/aws`. The runtime picture is in
 `system-design-nuzul.md`, Step 3.
 

@@ -3,7 +3,7 @@
 Owner: Scrum Master · Status: DRAFT · each sprint ≈ 2–3 sessions, closed with VERIFY + SHIP + push (CTS rule 7)
 
 ## Sprint 0 — Foundation (code begins only after these docs are approved)
-- 0.1 Repo, Maven wrapper, Spring Boot 3 skeleton with Modulith; Angular skeleton; Biome/ESLint; Spotless.
+- 0.1 Repo, Maven wrapper, Spring Boot 4 skeleton with Modulith; Angular skeleton; Biome/ESLint; Spotless.
 - 0.2 `compose.yaml`: PG, Redis, ES, Kafka, Keycloak (realm import), Mailpit, MinIO.
 - 0.3 CI: build + test + SonarCloud + Trivy; README with an architecture diagram.
 - 0.4 Measure the stack's RAM in compose → confirm the k3s budget (devops doc).
