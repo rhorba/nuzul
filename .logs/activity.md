@@ -39,3 +39,15 @@ Constraints: ADR-6 (no NgRx); i18n/OIDC are Sprint 4 — not now.
 - compose.yaml: PG 16.16, Redis 7.4.12, ES 8.19.25 (security off, 512m heap), Kafka 4.4.0 KRaft, Keycloak 26.8.2 (+realm import), Mailpit 1.34 — all healthchecks healthy.
 - Realm nuzul: roles GUEST/HOTEL_ADMIN/PLATFORM_ADMIN, nuzul-web (public, PKCE S256, aud mapper → nuzul-api), nuzul-api (bearer-only), 2 demo users.
 - api boots against stack: health/readiness UP, /api 401 w/o token, /v3/api-docs 200.
+
+HANDOFF: DevOps → DevOps/DevSecOps (CI) 
+Context: Batch 2 committed (fe1e605); stack healthy locally.
+Need: ci.yml (api verify + Sonar if token, web lint/test/build, Jib + nginx images, Trivy CRITICAL gate, GHCR push on main), README with diagram.
+Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders don't exist yet).
+
+### [2026-11-17] [EXECUTE] — 3.1–3.3 CI, images, README
+- .github/workflows/ci.yml: api verify (+Sonar when SONAR_TOKEN set), web lint/test/build, images: Jib tar + nginx → Trivy CRITICAL gate → GHCR multi-arch push on main. All actions pinned by SHA.
+- web/Dockerfile: node build → nginx-unprivileged (uid 101) + apk upgrade (fixed brotli CVE-2026-111497); SPA fallback, security headers.
+- Local Trivy: api 0 CRITICAL, web 0 CRITICAL after patch. api/mvnw +x.
+- SonarCloud (browser, owner-authorised): project rhorba_nuzul imported, Automatic Analysis OFF. SONAR_TOKEN secret: owner to set.
+- README with Mermaid architecture diagram.
