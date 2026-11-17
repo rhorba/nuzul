@@ -34,3 +34,8 @@ Constraints: ADR-6 (no NgRx); i18n/OIDC are Sprint 4 — not now.
 ### [2026-11-17] [EXECUTE] — 1.4 web skeleton done
 - Angular 22.2 standalone, Vitest (2/2), angular-eslint clean, PrimeNG 22 + NuzulPreset (terracotta), build OK.
 - Note: initial bundle 521 kB vs 500 kB budget (warning) — lazy routes in Sprint 4.
+
+### [2026-11-17] [EXECUTE] — 2.1–2.3 compose stack done
+- compose.yaml: PG 16.16, Redis 7.4.12, ES 8.19.25 (security off, 512m heap), Kafka 4.4.0 KRaft, Keycloak 26.8.2 (+realm import), Mailpit 1.34 — all healthchecks healthy.
+- Realm nuzul: roles GUEST/HOTEL_ADMIN/PLATFORM_ADMIN, nuzul-web (public, PKCE S256, aud mapper → nuzul-api), nuzul-api (bearer-only), 2 demo users.
+- api boots against stack: health/readiness UP, /api 401 w/o token, /v3/api-docs 200.
