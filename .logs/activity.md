@@ -55,3 +55,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-17] [EXECUTE] — 0.4 RAM measured
 - docker stats (idle, warm): api 389 MB, web 8, PG 48, Redis 4, ES 1,044, Kafka 433, Keycloak 768 → app stack ≈ 3.1 GB.
 - Budgets revised: ES 1 → 1.25 GB, Keycloak 512 → 768 MB; plan ≈ 6 GB of 24 GB. k3s budget confirmed (docs/devops-nuzul.md).
+
+### [2026-11-17 13:00] [SHIP] — Sprint 0 foundation
+- Summary: branch chore/sprint-0-foundation → PR #1 (https://github.com/rhorba/nuzul/pull/1); merge to main on green CI.
+- CI: run 44073782760 GREEN (api 55s, web 29s, images+Trivy 1m53s); SonarCloud skipped — SONAR_TOKEN not yet set.
+- Video (rule 9): n/a — no user-facing flows yet (skeleton shell only); first recording at v1.0 (Sprint 6.5).
+- Status: complete

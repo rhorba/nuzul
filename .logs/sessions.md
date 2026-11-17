@@ -19,3 +19,10 @@ Needs from owner at Sprint 0.3: a SonarCloud account linked to GitHub (SONAR_TOK
 
 ### [2026-11-17] SESSION_START — Session 2
 **Resume from:** docs approved + pushed (2529245). Starting Sprint 0 (foundation code).
+
+### [2026-11-17] SESSION_END
+**Done:** Sprint 0 complete — api (Boot 4.1.2 + Modulith, 7 tests, 83% cov), web (Angular 22 + PrimeNG), compose (PG:5435, Redis, ES, Kafka, Keycloak realm, Mailpit),
+CI (Sonar-ready, Trivy, GHCR multi-arch), README, RAM measured (≈3.1 GB idle; k3s plan ≈6 GB). PR #1 → main.
+CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-command-filter, e7c1f8f, local only).
+**Open for owner:** set SONAR_TOKEN secret; decide whether to push/PR the CTS hook fix.
+**Next:** Sprint 1 — 1.1 Flyway V1 schema + InventoryIntegrityIT (docs/database-nuzul.md §3 is binding), then 1.2–1.5.
