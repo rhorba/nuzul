@@ -33,7 +33,7 @@ Functional and non-functional requirements are in `system-design-nuzul.md`, Step
 ## 6. Constraints and assumptions
 - Solo developer with Claude Code; CTS framework; about 3 weeks for this app inside the 5–6 week Balanced plan.
 - Runs on the owner's existing Oracle Cloud free-tier k3s cluster. AWS is used only for S3 + CloudFront, which costs about $0.
-- Java 21, Spring Boot 3.x, Angular (current stable at Sprint 1).
+- Java 21, Spring Boot 4.1 (3.x left OSS support mid-2026; decision 2026-11-17), Angular 22.
 
 ## 7. Risks
 | Risk | Mitigation |

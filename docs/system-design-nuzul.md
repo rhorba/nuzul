@@ -118,7 +118,7 @@ Errors use RFC 9457 `application/problem+json` with a stable `code`.
  Traefik ingress (k3s) ──► Keycloak (OIDC: guest + hotel-admin realms roles)
      │
      ▼
- nuzul-api  (Spring Boot 3, modular monolith, Spring Modulith boundaries)
+ nuzul-api  (Spring Boot 4, modular monolith, Spring Modulith boundaries)
   ├─ catalog       hotels, room types, photos (S3 presign)
   ├─ inventory     room_inventory, rates, the conditional UPDATE
   ├─ reservation   hold / confirm / cancel / expiry job, idempotency

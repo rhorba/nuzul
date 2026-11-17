@@ -1,0 +1,11 @@
+.shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+}
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--p-primary-color);
+}

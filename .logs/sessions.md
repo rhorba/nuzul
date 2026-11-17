@@ -16,3 +16,6 @@ All 10 foundation docs drafted in `docs/` (CTS rule 13).
 **Next (open Claude Code in this folder):** Sprint 0 per docs/stories-nuzul.md — 0.1 skeletons (Maven wrapper,
 Spring Boot 3 + Modulith, Angular + PrimeNG), 0.2 compose.yaml, 0.3 CI + SonarCloud + Trivy, 0.4 measure RAM of the stack.
 Needs from owner at Sprint 0.3: a SonarCloud account linked to GitHub (SONAR_TOKEN secret).
+
+### [2026-11-17] SESSION_START — Session 2
+**Resume from:** docs approved + pushed (2529245). Starting Sprint 0 (foundation code).
