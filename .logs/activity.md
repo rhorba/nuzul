@@ -78,3 +78,8 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - pom: maven-failsafe-plugin (shares JaCoCo argLine/exec → merged coverage).
 - InventoryIntegrityIT dispatched to cts:implementer.
 - docs: database §2.1 partitioning, devops CI step + CNPG note; risk logged.
+
+### [2026-11-18 11:00] [SHIP] — Story 1.1 Flyway V1 + pg_partman + InventoryIntegrityIT
+- Summary: feature/1.1-flyway-v1-schema @ 8df5b65, PR #2
+- CI: GREEN (api verify 1m19s, images build+Trivy 2m59s, web 26s)
+- Status: complete (awaiting owner merge)
