@@ -181,6 +181,20 @@
 					</execution>
 				</executions>
 			</plugin>
+			<!-- *IT classes (Testcontainers integration tests). Shares JaCoCo's argLine and
+			     jacoco.exec with Surefire, so the verify-phase report and 80 % gate cover both. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>

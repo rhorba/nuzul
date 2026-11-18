@@ -23,7 +23,7 @@ CREATE TABLE room_inventory (
   total INT NOT NULL CHECK (total >= 0), reserved INT NOT NULL DEFAULT 0,
   PRIMARY KEY (room_type_id, night),
   CONSTRAINT inventory_no_oversell CHECK (reserved >= 0 AND reserved <= total)
-) PARTITION BY RANGE (night);          -- monthly partitions created by a Flyway Java migration + job
+) PARTITION BY RANGE (night);          -- monthly partitions managed by pg_partman (see §2.1)
 
 CREATE TABLE rate (
   room_type_id UUID NOT NULL REFERENCES room_type(id), night DATE NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE reservation (
   total_mad NUMERIC(12,2) NOT NULL, hold_expires_at TIMESTAMPTZ, idempotency_key UUID NOT NULL,
   guest_name TEXT NOT NULL, guest_email TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), version INT NOT NULL DEFAULT 0,
-  CHECK (check_out > check_in),
+  CONSTRAINT reservation_half_open_dates CHECK (check_out > check_in),
   CONSTRAINT reservation_idem UNIQUE (guest_sub, idempotency_key));
 CREATE INDEX reservation_expiry ON reservation (hold_expires_at) WHERE status = 'HELD';
 CREATE INDEX reservation_guest ON reservation (guest_sub, created_at DESC);
@@ -52,6 +52,24 @@ CREATE INDEX outbox_unpublished ON outbox_event (created_at) WHERE published_at 
 
 CREATE TABLE processed_event (consumer TEXT, event_id UUID, PRIMARY KEY (consumer, event_id));
 ```
+
+### 2.1 Partitioning (pg_partman)
+- `V1__schema.sql` installs `pg_partman` in schema `partman` and calls
+  `partman.create_parent('public.room_inventory', 'night', '1 month', p_premake => 18)`.
+  This premakes 18 months on either side of the current month, plus `room_inventory_default`, which catches
+  any night outside the window so an insert never fails for a missing month.
+- The `pg_partman_bgw` background worker (`shared_preload_libraries`, hourly, db and role `nuzul`) runs
+  `partman.run_maintenance_proc()` to premake future months. No application-side job is needed.
+- Needs the custom image `deploy/postgres/Dockerfile` (Postgres 16 bookworm + `postgresql-16-partman`). It's used
+  by compose and Testcontainers, and pushed to GHCR as `nuzul-postgres`. The bgw settings live in the image's
+  `postgresql.conf.sample`, so no `-c` flags are needed.
+- **DEFAULT partition guard**: a row in `room_inventory_default` for a future month blocks pg_partman from creating
+  that month, and maintenance then fails every hour. So the API refuses inventory and rate nights beyond the
+  180-day booking window (story 1.3), which keeps every real night inside the premade months.
+- **Privileges**: `pg_partman` is not a trusted extension. Compose and Testcontainers run Flyway as superuser.
+  On CloudNativePG, create `partman` and the extension in `bootstrap.initdb.postInitApplicationSQL`; V1 uses
+  `IF NOT EXISTS`, so it then skips them. The CNPG cluster needs a pg_partman-enabled operand image.
+- Retention of past partitions is not configured yet (YAGNI). Add `part_config.retention` when archiving is needed.
 
 ## 3. Rules that must not be undone
 1. `inventory_no_oversell` is the last line of defence. Never drop it to "fix" a failing request.

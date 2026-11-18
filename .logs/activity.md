@@ -61,3 +61,25 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - CI: run 44073782760 GREEN (api 55s, web 29s, images+Trivy 1m53s); SonarCloud skipped — SONAR_TOKEN not yet set.
 - Video (rule 9): n/a — no user-facing flows yet (skeleton shell only); first recording at v1.0 (Sprint 6.5).
 - Status: complete
+
+### [2026-11-18] [PLAN] — Story 1.1 with pg_partman
+- B1 Postgres image (Dockerfile bookworm + postgresql-16-partman, bgw) → compose, Testcontainers, CI/GHCR
+- B2 V1__schema.sql (+ partman.create_parent, premake 18, default partition), Failsafe + JaCoCo merge, InventoryIntegrityIT
+- B3 docs update, VERIFY (mvn verify, coverage ≥80, Trivy), SHIP (PR + CI green)
+- Awaiting owner confirmation.
+
+### [2026-11-18] [EXECUTE] — B1 Postgres image with pg_partman
+- deploy/postgres/Dockerfile (postgres:16.16-bookworm + postgresql-16-partman=5.5.*, bgw CMD flags); built locally OK.
+- compose.yaml builds it; TestcontainersConfiguration builds same Dockerfile (ImageFromDockerfile, cached) with bgw flags, db/user=nuzul.
+- CI images job: build + Trivy + push ghcr nuzul-postgres (amd64+arm64) on main; failsafe reports uploaded.
+
+### [2026-11-18] [EXECUTE] — B2 schema + B3.1 docs
+- V1__schema.sql (§2 verbatim + partman.create_parent 1 month, premake 18, default partition); applies in 0.65 s on the image; 7 existing tests green.
+- pom: maven-failsafe-plugin (shares JaCoCo argLine/exec → merged coverage).
+- InventoryIntegrityIT dispatched to cts:implementer.
+- docs: database §2.1 partitioning, devops CI step + CNPG note; risk logged.
+
+### [2026-11-18 11:00] [SHIP] — Story 1.1 Flyway V1 + pg_partman + InventoryIntegrityIT
+- Summary: feature/1.1-flyway-v1-schema @ 8df5b65, PR #2
+- CI: GREEN (api verify 1m19s, images build+Trivy 2m59s, web 26s)
+- Status: complete (awaiting owner merge)

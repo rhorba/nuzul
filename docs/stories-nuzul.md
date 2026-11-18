@@ -11,7 +11,7 @@ Owner: Scrum Master · Status: DRAFT · each sprint ≈ 2–3 sessions, closed w
 ## Sprint 1 — Catalog + inventory guard
 - 1.1 Flyway V1 schema + `InventoryIntegrityIT`.
 - 1.2 Hotel and room-type CRUD (admin, scoped to owner) + cross-hotel test.
-- 1.3 Bulk inventory and rate endpoints (refuse `total < reserved`).
+- 1.3 Bulk inventory and rate endpoints (refuse `total < reserved`; refuse nights beyond the 180-day booking window, which keeps the pg_partman DEFAULT partition empty, per database doc §2.1).
 - 1.4 `InventoryRepository.reserve()` (the guard) + `LastRoomConcurrencyIT` + `MultiNightAtomicityIT`.
 - 1.5 Seed: 6 cities (Marrakech, Fès, Chefchaouen, Essaouira, Agadir, Tanger), ~60 hotels, 180 days of inventory.
 
