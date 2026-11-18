@@ -5,10 +5,14 @@ Owner: DevOps · Status: DRAFT
 ## CI (GitHub Actions), on every push and PR
 1. `api`: `./mvnw verify` (unit + Testcontainers + JaCoCo) → **SonarCloud** scan and quality gate.
 2. `web`: `npm ci && npm run lint && npm test && npm run build`.
-3. Build images (Jib for api, multi-stage nginx for web) → **Trivy** scan (fail on CRITICAL) → push to GHCR on `main`.
+3. Build images (Jib for api, multi-stage nginx for web, `deploy/postgres` for Postgres 16 + pg_partman) → **Trivy** scan (fail on CRITICAL) → push to GHCR on `main`.
 4. `helm lint` + `helm template | kubeconform`.
 5. `terraform fmt -check && terraform validate` for `infra/terraform/aws`.
 6. E2E job (on `main` only): compose up → Playwright → upload trace and video.
+
+### Local Postgres image switch (Sprint 1)
+Compose now builds `deploy/postgres` (Debian/glibc), replacing `postgres:16-alpine` (musl). Collation rules differ, so
+reset the volume once: `docker compose down -v && docker compose up -d`.
 
 ## CD
 On `main` with green CI: bump the image tag in `deploy/helm/nuzul/values-prod.yaml`. Argo CD (already on the owner's k3s)
@@ -19,7 +23,7 @@ syncs the release. A manual approval environment is required for prod.
 |---|---|---|
 | nuzul-api ×2 | Helm Deployment, HPA 2–4, readiness on `/actuator/health/readiness` | 2 × 512 MB |
 | nuzul-web | nginx Deployment | 32 MB |
-| Postgres 16 | CloudNativePG, 1 instance, nightly backup to S3 | 512 MB |
+| Postgres 16 | CloudNativePG, 1 instance, nightly backup to S3. Needs a pg_partman-enabled operand image and `shared_preload_libraries: [pg_partman_bgw]` (see database doc §2.1). | 512 MB |
 | Redis 7 | Bitnami chart, standalone | 128 MB |
 | Elasticsearch 8 | ECK, 1 node, heap 512 MB | 1.25 GB |
 | Kafka | Strimzi KRaft, 1 broker | 768 MB |

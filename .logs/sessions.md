@@ -26,3 +26,6 @@ CI (Sonar-ready, Trivy, GHCR multi-arch), README, RAM measured (≈3.1 GB idle; 
 CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-command-filter, e7c1f8f, local only).
 **Open for owner:** set SONAR_TOKEN secret; decide whether to push/PR the CTS hook fix.
 **Next:** Sprint 1 — 1.1 Flyway V1 schema + InventoryIntegrityIT (docs/database-nuzul.md §3 is binding), then 1.2–1.5.
+
+### [2026-11-18] SESSION_START
+- Resumed from 2026-11-17 SESSION_END. Owner chose: continue Sprint 1, story 1.1.

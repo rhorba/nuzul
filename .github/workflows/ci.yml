@@ -47,6 +47,7 @@ jobs:
           path: |
             api/target/site/jacoco/
             api/target/surefire-reports/
+            api/target/failsafe-reports/
           retention-days: 7
 
   web:
@@ -77,6 +78,7 @@ jobs:
     env:
       API_IMAGE: ghcr.io/${{ github.repository_owner }}/nuzul-api
       WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/nuzul-web
+      PG_IMAGE: ghcr.io/${{ github.repository_owner }}/nuzul-postgres
       PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,6 +116,21 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
+      - name: postgres image (amd64, loaded for scanning)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/postgres
+          platforms: linux/amd64
+          load: true
+          tags: nuzul-postgres:scan
+      - name: Trivy — postgres image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: nuzul-postgres:scan
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
       - name: Log in to GHCR
         if: env.PUSH == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -138,3 +155,13 @@ jobs:
           tags: |
             ${{ env.WEB_IMAGE }}:${{ github.sha }}
             ${{ env.WEB_IMAGE }}:latest
+      - name: Push postgres (amd64 + arm64)
+        if: env.PUSH == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/postgres
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.PG_IMAGE }}:${{ github.sha }}
+            ${{ env.PG_IMAGE }}:latest

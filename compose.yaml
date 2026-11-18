@@ -4,7 +4,8 @@ name: nuzul
 
 services:
   postgres:
-    image: postgres:16.16-alpine
+    image: nuzul-postgres:local
+    build: ./deploy/postgres
     environment:
       POSTGRES_DB: nuzul
       POSTGRES_USER: nuzul

@@ -14,3 +14,11 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 
 ### [2026-11-17] [EXECUTE] — Spring Boot 4.1.2 instead of 3.x
 - Initializr no longer offers 3.x; 3.5 OSS support ended mid-2026. Owner chose 4.1.2. Docs + CLAUDE.md updated.
+
+### [2026-11-18] [BRAINSTORM] — room_inventory partitioning (story 1.1)
+- Options: 🟢 SQL DO-block window + DEFAULT partition · 🟡 Java migration + scheduled job · 🔴 pg_partman extension
+- Chosen: 🔴 pg_partman (owner pick). Accepts custom Postgres image across compose / Testcontainers / CI / k3s.
+- Binding §3 rules unchanged.
+
+### [2026-11-18] [DECISION] — gosu CVE in postgres image
+- Option B chosen (owner): replace bundled gosu with Debian package; fallback A (.trivyignore) if Debian build also flagged.
