@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,9 +24,10 @@ import org.junit.jupiter.api.Test;
 /** Bulk rate rules against in-memory ports and a fixed clock; no Spring. */
 class RateAdminServiceTest {
 
-    private static final ZoneId CASABLANCA = ZoneId.of("Africa/Casablanca");
-    /* 23:30 UTC on Nov 18 is already Nov 19 in Casablanca (UTC+1): proves "today" comes from the clock's zone. */
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-18T23:30:00Z"), CASABLANCA);
+    /* A fixed offset, not Africa/Casablanca: Morocco's offset differs between JDK tzdata releases (2026). */
+    private static final ZoneOffset UTC_PLUS_ONE = ZoneOffset.ofHours(1);
+    /* 23:30 UTC on Nov 18 is already Nov 19 at UTC+1: proves "today" comes from the clock's zone. */
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-18T23:30:00Z"), UTC_PLUS_ONE);
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 19);
     private static final String OWNER = "owner-1";
 

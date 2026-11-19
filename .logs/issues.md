@@ -55,3 +55,10 @@
 - Security: pass — ownership via catalog.RoomTypeOwnership before any write (404 cross-owner, snapshot-asserted); URL + method role layers (GUEST invalid body → 403, mutation-checked); upsert re-checks latest reserved under row lock, all-or-nothing 409; window keeps pg_partman DEFAULT empty; BigDecimal money; no new deps; no secrets.
 - Reviews: spec PASS ×2, quality PASS ×2 (0 critical/high open)
 - Status: pass
+
+### [2026-11-19 15:00] [VERIFY] — CI fix: tzdata-dependent unit tests on PR #4
+- Cause: CI run 44515874289 red; InventoryAdminServiceTest/RateAdminServiceTest fixed clock 2026-11-18T23:30Z in Africa/Casablanca → Nov 19 locally (Temurin 25.0.3, tzdata 2026a, +01:00) but Nov 18 on CI (Temurin 21.0.13, newer tzdata). Production code unaffected (follows JDK tzdata).
+- Fix: unit tests use fixed ZoneOffset +01:00 (still proves "today" comes from the clock zone); ITs already pinned to local noon.
+- Tests: 112 unit passed / 0 failed locally; full IT suite unchanged since last pass.
+- Security: n/a (test-only change)
+- Status: pass
