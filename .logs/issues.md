@@ -49,3 +49,9 @@
 - Tests: 58 unit + 71 IT passed / 0 failed (local ./mvnw verify)
 - Security: pass — CSRF not applicable to bearer-only stateless API; decision recorded in code.
 - Status: pass
+
+### [2026-11-19 14:45] [VERIFY] — Story 1.3 bulk inventory + rates
+- Tests: 112 unit + 139 IT passed / 0 failed (./mvnw verify incl. Spotless, ArchUnit, Modulith, JaCoCo)
+- Security: pass — ownership via catalog.RoomTypeOwnership before any write (404 cross-owner, snapshot-asserted); URL + method role layers (GUEST invalid body → 403, mutation-checked); upsert re-checks latest reserved under row lock, all-or-nothing 409; window keeps pg_partman DEFAULT empty; BigDecimal money; no new deps; no secrets.
+- Reviews: spec PASS ×2, quality PASS ×2 (0 critical/high open)
+- Status: pass

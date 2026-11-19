@@ -1,0 +1,42 @@
+package ma.nuzul.inventory.application;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.UUID;
+import ma.nuzul.inventory.domain.RateChange;
+
+/**
+ * Test fake for {@link RateRepositoryPort}. Mirrors the SQL: insert with free_cancel_hours 48, or update price and
+ * refundable only, leaving free_cancel_hours as it was. There is no rollback here, the IT proves that.
+ */
+class InMemoryRateRepository implements RateRepositoryPort {
+
+    record Row(BigDecimal priceMad, boolean refundable, int freeCancelHours) {}
+
+    static final int DEFAULT_FREE_CANCEL_HOURS = 48;
+
+    final Map<UUID, Map<LocalDate, Row>> rows = new TreeMap<>();
+    int upsertCalls;
+
+    void seed(UUID roomTypeId, LocalDate night, Row row) {
+        rows.computeIfAbsent(roomTypeId, k -> new TreeMap<>()).put(night, row);
+    }
+
+    Row row(UUID roomTypeId, LocalDate night) {
+        return rows.getOrDefault(roomTypeId, Map.of()).get(night);
+    }
+
+    @Override
+    public void upsertRates(UUID roomTypeId, List<RateChange> changes) {
+        upsertCalls++;
+        var nights = rows.computeIfAbsent(roomTypeId, k -> new TreeMap<>());
+        for (RateChange c : changes) {
+            Row current = nights.get(c.night());
+            int hours = current == null ? DEFAULT_FREE_CANCEL_HOURS : current.freeCancelHours();
+            nights.put(c.night(), new Row(c.priceMad(), c.refundable(), hours));
+        }
+    }
+}

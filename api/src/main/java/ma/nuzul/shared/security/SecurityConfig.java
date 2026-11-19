@@ -27,6 +27,15 @@ class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
                                 "/actuator/health/**", "/actuator/info", "/v3/api-docs/**", "/swagger-ui/**")
                         .permitAll()
+                        /*
+                         * First authorization layer: decided in the filter chain, before Spring MVC parses and
+                         * validates the @RequestBody, so a GUEST sending an invalid body gets 403, not 400. The
+                         * controllers' @PreAuthorize("hasRole('HOTEL_ADMIN')") stays as the second layer. The two
+                         * MUST agree. Scoped to the hotel-admin resources only, so a platform endpoint such as
+                         * /api/v1/admin/search/reindex (PLATFORM_ADMIN, database doc §5) gets its own rule.
+                         */
+                        .requestMatchers("/api/v1/admin/hotels/**", "/api/v1/admin/room-types/**")
+                        .hasRole("HOTEL_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .oauth2ResourceServer(rs -> rs.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))

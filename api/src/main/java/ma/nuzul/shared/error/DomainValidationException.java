@@ -1,5 +1,7 @@
 package ma.nuzul.shared.error;
 
+import java.util.Map;
+
 /** A domain invariant was violated by the input. */
 public class DomainValidationException extends CodedException {
 
@@ -11,5 +13,9 @@ public class DomainValidationException extends CodedException {
 
     public DomainValidationException(String code, String message) {
         super(code, message);
+    }
+
+    public DomainValidationException(String code, String message, Map<String, Object> properties) {
+        super(code, message, properties);
     }
 }

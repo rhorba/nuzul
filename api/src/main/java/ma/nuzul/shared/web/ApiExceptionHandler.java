@@ -2,6 +2,7 @@ package ma.nuzul.shared.web;
 
 import java.util.List;
 import ma.nuzul.shared.error.CodedException;
+import ma.nuzul.shared.error.ConflictException;
 import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.NotFoundException;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +36,11 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, ex);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    ProblemDetail handleConflict(ConflictException ex) {
+        return problem(HttpStatus.CONFLICT, ex);
     }
 
     @ExceptionHandler(DomainValidationException.class)
@@ -113,6 +119,7 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static ProblemDetail problem(HttpStatus status, CodedException ex) {
         var pd = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
+        ex.properties().forEach(pd::setProperty);
         pd.setProperty(CODE, ex.code());
         return pd;
     }
