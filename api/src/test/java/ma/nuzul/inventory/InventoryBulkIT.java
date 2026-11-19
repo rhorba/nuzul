@@ -1,15 +1,17 @@
 package ma.nuzul.inventory;
 
+import static ma.nuzul.support.AdminApi.PROBLEM_JSON;
+import static ma.nuzul.support.AdminApi.admin;
+import static ma.nuzul.support.AdminApi.guest;
+import static ma.nuzul.support.AdminApi.json;
+import static ma.nuzul.support.AdminApi.ownerSub;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.jayway.jsonpath.JsonPath;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -19,6 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import ma.nuzul.TestcontainersConfiguration;
+import ma.nuzul.support.AdminApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -29,12 +32,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * Story 1.3: owner-scoped bulk inventory upsert, end to end through security, MVC, the guarded SQL and Postgres
@@ -58,8 +57,6 @@ class InventoryBulkIT {
         }
     }
 
-    private static final String PROBLEM_JSON = "application/problem+json";
-
     @Autowired
     MockMvc mvc;
 
@@ -67,20 +64,8 @@ class InventoryBulkIT {
     JdbcTemplate jdbc;
 
     /* Fresh owner subs per test: isolated from other tests and other IT classes, no FK-sensitive cleanup. */
-    private final String ownerA = "owner-a-" + UUID.randomUUID();
-    private final String ownerB = "owner-b-" + UUID.randomUUID();
-
-    private static JwtRequestPostProcessor admin(String sub) {
-        return jwt().jwt(j -> j.subject(sub)).authorities(new SimpleGrantedAuthority("ROLE_HOTEL_ADMIN"));
-    }
-
-    private static JwtRequestPostProcessor guest() {
-        return jwt().jwt(j -> j.subject("guest-1")).authorities(new SimpleGrantedAuthority("ROLE_GUEST"));
-    }
-
-    private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder b, String body) {
-        return b.contentType(MediaType.APPLICATION_JSON).content(body);
-    }
+    private final String ownerA = ownerSub("owner-a");
+    private final String ownerB = ownerSub("owner-b");
 
     private static String inventory(String roomTypeId) {
         return "/api/v1/admin/room-types/" + roomTypeId + "/inventory";
@@ -99,22 +84,7 @@ class InventoryBulkIT {
     }
 
     private String createRoomType(String owner) throws Exception {
-        String hotel = mvc.perform(json(post("/api/v1/admin/hotels"), "{\"name\":\"Riad\",\"city\":\"Fes\"}")
-                        .with(admin(owner)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        String hotelId = JsonPath.read(hotel, "$.id");
-        String roomType = mvc.perform(json(
-                                post("/api/v1/admin/hotels/" + hotelId + "/room-types"),
-                                "{\"name\":\"Double\",\"capacity\":2}")
-                        .with(admin(owner)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return JsonPath.read(roomType, "$.id");
+        return AdminApi.createRoomType(mvc, owner);
     }
 
     private void putOk(String roomTypeId, String owner, String body) throws Exception {

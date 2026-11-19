@@ -26,3 +26,9 @@
 - Scope: PUT /api/v1/admin/room-types/{id}/inventory [{night,total}] (refuse total < reserved) and PUT .../rates [{night,priceMad,refundable}]; HOTEL_ADMIN, owner-scoped; nights limited to [today, today+180) to keep the pg_partman DEFAULT partition empty (database doc §2.1).
 - Module question: inventory owns room_inventory/rate but ownership lives in catalog (closed Modulith module).
 - Env vars: new APP_TIME_ZONE (default Africa/Casablanca) for "today"; no secrets.
+
+### [2026-11-19 15:35] [UNDERSTAND] — Story 1.4 reserve() guard + release gates 1–2
+- Track: Full-depth Standard (core double-booking guard; release gates LastRoomConcurrencyIT, MultiNightAtomicityIT; DBA + backend + test architect).
+- Binding: system-design §"double-booking guard" (one atomic conditional UPDATE, rowcount == nights else 409 SOLD_OUT, ascending night order), database doc §3 (half-open, CHECK backstop).
+- Conflict found: the doc's plain range UPDATE does not guarantee ascending lock order (1.3 quality review) → needs ordered FOR NO KEY UPDATE CTE in the same statement; doc to be updated.
+- No HTTP endpoint (reservation module is 2.1): guard exposed as inventory module API, tested at that level. No new env vars.

@@ -32,3 +32,12 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 - Options: Simple (inventory SQL joins catalog tables) / Balanced (catalog public RoomTypeOwnership API, inventory upserts own tables) / Comprehensive (+EXISTS in upsert, GET read-back, range payloads).
 - Chosen by owner: Balanced. Shared baseline: single-statement upsert with `WHERE reserved <= EXCLUDED.total`, all-or-nothing 409 INVENTORY_BELOW_RESERVED, window [today, today+180) in APP_TIME_ZONE → 400 NIGHT_OUTSIDE_WINDOW.
 - Rationale: keeps Modulith boundary verifiable; TOCTOU harmless (owner/hotel_id immutable); read-back is story 5.2.
+
+### [2026-11-19 15:45] [BRAINSTORM] — Story 1.4 reserve() guard
+- Options: Simple (doc's plain range UPDATE + 40P01 retry) / Balanced (one statement: ordered FOR NO KEY UPDATE CTE + conditional UPDATE, MANDATORY-tx module API, deadlock-freedom IT, doc updated, retry in 2.1) / Comprehensive (+@Retryable now, release(), oversell metric).
+- Chosen by owner: Balanced. Rationale: deadlock-free by lock order not by retry; still one round trip (doc's rejected option (b) was two round trips); retry/release belong with 2.1/2.3/2.4 transaction boundaries.
+
+### [2026-11-19 18:20] [DECISION] — 1.4 guard SQL final form (owner, via blocker protocol)
+- Finding: under READ COMMITTED, Postgres evaluates CHECK on a provisional row built from the statement-snapshot tuple before detecting the concurrent update and recomputing; any column taken from r can trip 23514 on a valid sale. Reproduced in ReserveLockWaitIT and raw PG16.
+- Options: A) all columns from locked values (`SET reserved = l.reserved + :rooms, total = l.total`) / B) PL/pgSQL two-statement function (migration) / C) keep current (500 on concurrent total raise).
+- Chosen by owner: A. Rule amended from "never write total" to "never changes total" (rewritten with the value held under our own row lock).
