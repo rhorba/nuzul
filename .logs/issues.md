@@ -36,3 +36,9 @@
 - Security: pass — Trivy CRITICAL/HIGH 0 on nuzul-postgres (Debian gosu 1.14 replaces upstream Go 1.24.6 build; Debian tracker rates gosu stdlib CVEs not exploitable). Container PID 1 uid 999 (postgres).
 - Reviews: spec PASS, quality PASS (findings addressed)
 - Status: pass
+
+### [2026-11-19 11:50] [VERIFY] — Story 1.2 hotel + room-type admin CRUD
+- Tests: 58 unit + 71 IT passed / 0 failed (./mvnw verify: Spotless, ArchUnit hexagonal, Modulith ModularityTest, Failsafe, JaCoCo check)
+- Security: pass — cross-owner/cross-hotel 404 tests with DB snapshots, owner never from body (mass-assignment test), GUEST 403 / no token 401 on every endpoint, realm-role mapping proven through real bearer filter chain (mutation-checked), input bounds (@Size/@Digits/@Max), no generic exception handler, no detail leak on 400s; no new dependencies; no secrets in diff.
+- Reviews: spec PASS ×2, quality PASS ×2 (0 critical/high open)
+- Status: pass
