@@ -34,3 +34,11 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **Done:** Story 1.1. V1 schema with pg_partman (premake 18, DEFAULT partition), custom image deploy/postgres (Debian gosu replaces the CVE-flagged upstream binary), Failsafe + merged JaCoCo (83.3%), InventoryIntegrityIT (10 tests). Spec and quality reviews PASS. PR #2, CI green.
 **Open for owner:** merge PR #2; run `docker compose down -v` once locally (Alpine→Debian volume); SONAR_TOKEN still unset.
 **Next:** story 1.2 Hotel/room-type CRUD (owner-scoped) + cross-hotel test. Remember story 1.3 must refuse nights beyond the 180-day window (keeps the DEFAULT partition empty).
+
+### [2026-11-19] SESSION_START
+- Resumed from 2026-11-18 SESSION_END. PR #2 merged; volume reset + SONAR_TOKEN done (activity log). Branch feature/1.2-hotel-roomtype-crud off main @ bdb9bf1.
+
+### [2026-11-19] SESSION_END
+**Done:** Story 1.2. Owner-scoped admin CRUD for hotels (/api/v1/admin/hotels) and room types (/api/v1/admin/hotels/{id}/room-types), hexagonal catalog module, Keycloak realm-role converter (proven through real bearer chain), problem+json with stable codes. 58 unit + 71 IT, line 98.4%. Spec + quality reviews PASS ×2. PR #3, CI green after S4502 CSRF suppression (owner choice A).
+**Open for owner:** merge PR #3.
+**Next:** story 1.3 bulk inventory + rates under /api/v1/admin/room-types/{id}/... — needs RoomTypeRepositoryPort.findByIdAndOwner (no hotelId) + a catalog @NamedInterface if inventory module checks ownership; refuse total < reserved; refuse nights beyond 180-day window; consider Persistable to avoid merge SELECTs on bulk inserts.

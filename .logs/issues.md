@@ -36,3 +36,16 @@
 - Security: pass — Trivy CRITICAL/HIGH 0 on nuzul-postgres (Debian gosu 1.14 replaces upstream Go 1.24.6 build; Debian tracker rates gosu stdlib CVEs not exploitable). Container PID 1 uid 999 (postgres).
 - Reviews: spec PASS, quality PASS (findings addressed)
 - Status: pass
+
+### [2026-11-19 11:50] [VERIFY] — Story 1.2 hotel + room-type admin CRUD
+- Tests: 58 unit + 71 IT passed / 0 failed (./mvnw verify: Spotless, ArchUnit hexagonal, Modulith ModularityTest, Failsafe, JaCoCo check)
+- Security: pass — cross-owner/cross-hotel 404 tests with DB snapshots, owner never from body (mass-assignment test), GUEST 403 / no token 401 on every endpoint, realm-role mapping proven through real bearer filter chain (mutation-checked), input bounds (@Size/@Digits/@Max), no generic exception handler, no detail leak on 400s; no new dependencies; no secrets in diff.
+- Reviews: spec PASS ×2, quality PASS ×2 (0 critical/high open)
+- Status: pass
+
+### [2026-11-19 12:15] [VERIFY] — CI fix: SonarCloud gate (java:S4502 CSRF) on PR #3
+- Cause: CI run 44501525712 red; quality gate new_security_rating=4 from one issue, S4502 on csrf.disable() (pre-existing line counted as new after signature change). Tests/coverage in CI were fine (new_coverage 94.9%).
+- Fix (owner chose A): @SuppressWarnings("java:S4502") + javadoc justification (stateless, Bearer header only, no auth cookies).
+- Tests: 58 unit + 71 IT passed / 0 failed (local ./mvnw verify)
+- Security: pass — CSRF not applicable to bearer-only stateless API; decision recorded in code.
+- Status: pass

@@ -14,3 +14,9 @@
 - Track: Standard — data migration (never Quick); design already fixed in docs, so no doc chain.
 - Env vars: none new (DB_URL/DB_USER/DB_PASSWORD already in .env.example).
 - Lead: DBA. Open decision: how to create room_inventory monthly partitions.
+
+### [2026-11-19 09:10] [UNDERSTAND] — Story 1.2 hotel + room-type CRUD
+- Track: Standard (touches auth/authorization; backend + security + tester).
+- Scope: /admin/hotels and /admin/hotels/{id}/room-types for role HOTEL_ADMIN, owner scope in SQL (owner_sub = jwt.sub), 404 not 403 on foreign hotel (security doc), cross-hotel test.
+- Gaps found: no realm-role → authority mapping yet; no ProblemDetails handler yet; no catalog code yet.
+- Env vars: none new.

@@ -6,3 +6,4 @@
 - [2026-11-17] Stack RAM (idle compose): ≈ 3.1 GB app stack; k3s plan ≈ 6 GB / 24 GB
 - [2026-11-18] Coverage: 83.3% (story 1.1, unit+IT merged)
 - [2026-11-18] Coverage: 83.3%
+- [2026-11-19] Coverage: 98.4% (line, merged unit+IT JaCoCo; branch 81.1%) — story 1.2

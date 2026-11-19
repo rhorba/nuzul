@@ -83,3 +83,37 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Summary: feature/1.1-flyway-v1-schema @ 8df5b65, PR #2
 - CI: GREEN (api verify 1m19s, images build+Trivy 2m59s, web 26s)
 - Status: complete (awaiting owner merge)
+
+### [2026-11-18 11:15] [QUICK] — Local volume reset + SonarCloud token setup
+- Specialist: devops-devsecops
+- Understand: owner asked to run `docker compose down -v` and fetch a SonarCloud token via Chrome.
+- Approach: reset volumes and start Postgres on the new image; open SonarCloud in Chrome.
+- Result: Postgres 16.16 + pg_partman_bgw running fresh. SonarCloud project rhorba_nuzul exists (last analysis 1 day ago, likely Automatic Analysis); browser is logged out, so the owner logs in, generates the token and sets the GitHub secret.
+- Verify: psql version + shared_preload_libraries checked; token not handled by the assistant.
+- [2026-11-18 11:25] SonarCloud Analysis Method checked (owner logged in): Automatic analysis already Off, no change made. SONAR_TOKEN secret left to the owner (assistant does not enter tokens).
+- [2026-11-18 20:00] CI re-run on PR #2 (run 44274831202): all jobs GREEN; SonarCloud scan ran with SONAR_TOKEN, QUALITY GATE STATUS: PASSED.
+
+### [2026-11-19 09:30] [PLAN] — Story 1.2 hotel + room-type CRUD (5 pts), approved by owner
+- B1 security plumbing (realm-role converter, method security, problem+json) · B2 hotels (domain/ports/JPA/web + HotelAdminIT cross-owner) · B3 room types (+ RoomTypeAdminIT cross-hotel) · B4 verify/ship.
+- Execution: B1 inline; B2/B3 via cts:implementer + spec/quality reviewers.
+
+### [2026-11-19 09:55] [EXECUTE] — 1.2 Batch 1 security plumbing
+- KeycloakRealmRoleConverter (realm_access.roles → ROLE_*), wired into SecurityConfig; @EnableMethodSecurity; spring.mvc.problemdetails.enabled.
+- Test-first: KeycloakRealmRoleConverterTest red (compile) → green 4/4. Unit suite 11/11 green (Docker Desktop had to be started).
+
+### [2026-11-19 10:30] [EXECUTE] — 1.2 Batch 2 hotels CRUD (cts:implementer)
+- catalog domain/application/adapters + shared/error + shared/web/ApiExceptionHandler; /api/v1/admin/hotels POST/GET/PUT/list, owner scope in SQL (findByIdAndOwnerSub), 404 HOTEL_NOT_FOUND cross-owner, size>100 → 400.
+- verify green: 34 unit + 35 IT; line coverage 97.7%, branch 88.9%.
+- Spec review: PASS (8/8). Quality review: PASS, 0 critical/high; 3 medium (IT cleanup FK vs room_type, null amenity element → 500, lat/lon scale >6 echoed) + 5 low (sort tiebreak, code missing on some 400s, converter not exercised in IT, no @Size bounds, dead problemdetails property).
+
+### [2026-11-19 11:45] [EXECUTE] — 1.2 Batch 3 room types + 8 hardening fixes (cts:implementer)
+- /api/v1/admin/hotels/{hotelId}/room-types POST/GET/PUT; scope = @PreAuthorize + scoped parent load + JPQL exists(h.ownerSub=:owner); hotel_id updatable=false.
+- Hardening 1–8 applied (random IT owners, amenity element + @Size + @Digits validation, sort tiebreak, code on every 400, converter @Bean, dead property removed).
+- Spec review PASS (B6 test only exercised converter, not chain) → orchestrator rewrote RealmRoleWiringIT with @MockitoBean JwtDecoder + real Bearer header; mutation-checked (dropping KeycloakRealmRoleConverter → 403, test fails).
+- Quality review PASS, 0 critical/high. Medium (capacity upper bound not in domain) + low (blank bedConfig) fixed inline test-first: RoomType.MAX_CAPACITY=20 shared with @Max.
+- Deferred lows (for 1.3): Persistable to avoid merge SELECT on bulk paths; `code` absent on 405/415; RoomTypeRepositoryPort needs findByIdAndOwner without hotelId + catalog @NamedInterface if inventory module checks ownership; room-type name-tie ordering untested.
+
+### [2026-11-19 12:25] [SHIP] — Story 1.2 hotel + room-type admin CRUD
+- Summary: feature/1.2-hotel-roomtype-crud @ e79773c (f853028 + CSRF S4502 fix), PR #3
+- CI: run 44501525712 RED (SonarCloud security rating, java:S4502) → fixed → run 44502977453 GREEN (api verify+Sonar 2m6s, images build+Trivy 3m40s, web 22s)
+- Status: complete (awaiting owner merge)
