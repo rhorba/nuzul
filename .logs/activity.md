@@ -133,3 +133,8 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - URL-level hasRole(HOTEL_ADMIN) on admin resources + @PreAuthorize kept; GUEST-invalid-body→403 regression tests in all 4 admin ITs; mutation-checked by orchestrator (rule disabled → 8 cases 400).
 - Spec review PASS. Quality review PASS, 0 critical/high. Fixed inline: matcher narrowed to /admin/hotels/** + /admin/room-types/** (future PLATFORM_ADMIN reindex), RateChange comment corrected (@Digits counts trailing zeros) + 850.000→400 test, sci-notation round-trip tests (1E+3, 8.5E+2, 1E+8→400), shared NightBatch.MAX_SIZE.
 - Carried forward: shared IT test-support class (1.4); hold must refuse nights without rate row; cancel checks refundable before free_cancel_hours; reserve()/expiry ordered FOR NO KEY UPDATE CTE + 40P01 retry + concurrency IT (1.4).
+
+### [2026-11-19 15:20] [SHIP] — Story 1.3 bulk inventory + rates
+- Summary: feature/1.3-bulk-inventory-rates @ c8637ff, PR #4
+- CI: run 44515874289 RED (unit tests tzdata-dependent: Africa/Casablanca offset differs CI vs local) → fixed → run 44516405302 api+web GREEN, images RED (transient Maven plugin resolution for jib, no code change) → job rerun GREEN (api verify+Sonar 1m44s, images build+Trivy, web 25s)
+- Status: complete (awaiting owner merge)
