@@ -13,7 +13,13 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 class SecurityConfig {
 
+    /**
+     * CSRF is off on purpose (java:S4502 reviewed): the API is stateless (no HTTP session), authenticates only via
+     * the {@code Authorization: Bearer} header and sets no auth cookies, so a cross-site request carries no
+     * credentials the browser could attach. Revisit if cookie-based auth is ever introduced.
+     */
     @Bean
+    @SuppressWarnings("java:S4502")
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter)
             throws Exception {
         return http.csrf(csrf -> csrf.disable())
