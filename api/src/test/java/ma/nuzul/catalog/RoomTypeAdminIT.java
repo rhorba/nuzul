@@ -315,4 +315,19 @@ class RoomTypeAdminIT {
                 .andExpect(status().isForbidden());
         assertThat(roomTypeCount(h)).isEqualTo(1);
     }
+
+    /* B1: the URL rule rejects a GUEST before MVC parses or validates the body (403, never 400). */
+    @Test
+    void guestWithInvalidBodyIs403Not400() throws Exception {
+        String h = createHotel(ownerA);
+        String id = createRoomType(ownerA, h, DOUBLE_JSON);
+        String before = snapshot(id);
+
+        mvc.perform(json(post(roomTypes(h)), "{\"capacity\":0}").with(guest())).andExpect(status().isForbidden());
+        mvc.perform(json(put(roomTypes(h) + "/" + id), "{\"name\":").with(guest()))
+                .andExpect(status().isForbidden());
+
+        assertThat(roomTypeCount(h)).isEqualTo(1);
+        assertThat(snapshot(id)).isEqualTo(before);
+    }
 }

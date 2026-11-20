@@ -28,4 +28,12 @@ interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, UUID> {
             order by r.name asc, r.id asc
             """)
     List<RoomTypeJpaEntity> findAllScoped(@Param("hotelId") UUID hotelId, @Param("owner") String ownerSub);
+
+    /** For other modules (RoomTypeOwnership): the room type exists AND its hotel belongs to the caller. */
+    @Query("""
+            select count(r) > 0 from RoomTypeJpaEntity r
+            where r.id = :id
+              and exists (select 1 from HotelJpaEntity h where h.id = r.hotelId and h.ownerSub = :owner)
+            """)
+    boolean existsOwned(@Param("id") UUID id, @Param("owner") String ownerSub);
 }

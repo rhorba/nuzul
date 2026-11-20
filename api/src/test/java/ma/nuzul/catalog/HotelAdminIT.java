@@ -414,4 +414,17 @@ class HotelAdminIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[*].name", contains("High", "Low")));
     }
+
+    /* B1: the URL rule rejects a GUEST before MVC parses or validates the body (403, never 400). */
+    @Test
+    void guestWithInvalidBodyIs403Not400() throws Exception {
+        String id = createHotel(ownerA, "Riad A");
+        String before = snapshot(id);
+
+        mvc.perform(json(post(BASE), "{\"name\":\"\"}").with(guest())).andExpect(status().isForbidden());
+        mvc.perform(json(post(BASE), "{\"name\":").with(guest())).andExpect(status().isForbidden());
+        mvc.perform(json(put(BASE + "/" + id), "{\"stars\":9}").with(guest())).andExpect(status().isForbidden());
+
+        assertThat(snapshot(id)).isEqualTo(before);
+    }
 }

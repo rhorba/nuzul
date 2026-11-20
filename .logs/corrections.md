@@ -9,3 +9,7 @@
 
 ### [2026-11-19 10:40] [PLAN CHANGE] — 1.2 Batch 3 scope widened
 - Owner chose to fold all 8 Batch 2 quality findings (3 medium, 5 low) into Batch 3 alongside room types.
+
+### [2026-11-19 13:40] [PLAN CHANGE] — 1.3 Batch 2 also fixes admin authz ordering
+- Adds URL-level `/api/v1/admin/**` hasRole(HOTEL_ADMIN) (keeps @PreAuthorize) + GUEST-invalid-body→403 regression tests on all admin controllers, comment reword on lock order, CodedException.properties null-safe. Reason: quality-review Medium #1 is a real authz-ordering defect in shipped 1.2 code.
+- Medium #2 (reserve lock order) carried to story 1.4.

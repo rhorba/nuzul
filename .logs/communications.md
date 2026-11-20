@@ -20,3 +20,9 @@
 - Scope: /admin/hotels and /admin/hotels/{id}/room-types for role HOTEL_ADMIN, owner scope in SQL (owner_sub = jwt.sub), 404 not 403 on foreign hotel (security doc), cross-hotel test.
 - Gaps found: no realm-role → authority mapping yet; no ProblemDetails handler yet; no catalog code yet.
 - Env vars: none new.
+
+### [2026-11-19 12:40] [UNDERSTAND] — Story 1.3 bulk inventory + rates
+- Track: Standard (authz + inventory integrity; backend + DBA + security + tester).
+- Scope: PUT /api/v1/admin/room-types/{id}/inventory [{night,total}] (refuse total < reserved) and PUT .../rates [{night,priceMad,refundable}]; HOTEL_ADMIN, owner-scoped; nights limited to [today, today+180) to keep the pg_partman DEFAULT partition empty (database doc §2.1).
+- Module question: inventory owns room_inventory/rate but ownership lives in catalog (closed Modulith module).
+- Env vars: new APP_TIME_ZONE (default Africa/Casablanca) for "today"; no secrets.

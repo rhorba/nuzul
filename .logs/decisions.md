@@ -27,3 +27,8 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 - Options: Simple (service + JPA only) / Balanced (hexagonal domain + ports + adapters) / Comprehensive (+ETag, PLATFORM_ADMIN override, HotelChanged event).
 - Chosen by owner: Balanced. Shared baseline: realm-role converter, built-in problem+json, @PreAuthorize, owner-scoped queries (404 not 403), no DELETE (status INACTIVE).
 - Rationale: ADR-2 compliance, ArchUnit rules become non-vacuous; Comprehensive items are YAGNI until 3.2 / later.
+
+### [2026-11-19 12:50] [BRAINSTORM] — Story 1.3 ownership boundary
+- Options: Simple (inventory SQL joins catalog tables) / Balanced (catalog public RoomTypeOwnership API, inventory upserts own tables) / Comprehensive (+EXISTS in upsert, GET read-back, range payloads).
+- Chosen by owner: Balanced. Shared baseline: single-statement upsert with `WHERE reserved <= EXCLUDED.total`, all-or-nothing 409 INVENTORY_BELOW_RESERVED, window [today, today+180) in APP_TIME_ZONE → 400 NIGHT_OUTSIDE_WINDOW.
+- Rationale: keeps Modulith boundary verifiable; TOCTOU harmless (owner/hotel_id immutable); read-back is story 5.2.
