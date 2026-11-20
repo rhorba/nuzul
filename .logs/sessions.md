@@ -47,3 +47,11 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **Done:** Story 1.3. PUT /api/v1/admin/room-types/{id}/inventory (single guarded upsert, all-or-nothing 409 INVENTORY_BELOW_RESERVED) and /rates (BigDecimal end to end); 180-day window in APP_TIME_ZONE keeps pg_partman DEFAULT empty; catalog.RoomTypeOwnership module API; URL-level admin role rule fixes GUEST-invalid-body 400→403 on all admin endpoints. 112 unit + 139 IT, line 99.2%. Reviews PASS ×4. PR #4 CI green.
 **Open for owner:** merge PR #4. Heads-up: CI's newer JDK tzdata resolves Africa/Casablanca differently from local JDK 25 (tzdata 2026a) — consider updating the local JDK.
 **Next:** story 1.4 reserve() guard + LastRoomConcurrencyIT + MultiNightAtomicityIT. Must: ordered `SELECT … ORDER BY night FOR NO KEY UPDATE` CTE + conditional UPDATE in one statement, rowcount == nights else rollback, 40P01 bounded retry, concurrency IT vs bulk upsert; extract shared IT support class first. Carry to 2.x: hold refuses nights with no rate row; cancel checks refundable before free_cancel_hours.
+
+### [2026-11-19] SESSION_START (3)
+- Story 1.4 on feature/1.4-reserve-guard, stacked on feature/1.3 (PR #4 not merged yet); rebase onto main before opening PR.
+
+### [2026-11-19] SESSION_END (3)
+**Done:** Story 1.4. InventoryReservations.reserve() (MANDATORY tx, 409 SOLD_OUT). Final guard: ordered FOR NO KEY UPDATE CTE + `SET reserved = l.reserved + :rooms, total = l.total`, guard on l, night range on r. Found & documented PG READ COMMITTED gotcha (CHECK evaluated on provisional snapshot-based row before EPQ) via 2 failed variants. Release gates LastRoomConcurrencyIT + MultiNightAtomicityIT, ReserveLockWaitIT, ReserveDeadlockFreedomIT (real regression guard), ReservePlanIT. 139 unit + 158 IT, line 99.3%. PR #5 CI green.
+**Open for owner:** merge PR #4, then PR #5 (stacked). Sprint 1 remaining: 1.5 seed data.
+**Next:** story 1.5 seed (6 cities, ~60 hotels, 180 days inventory) — must use the bulk APIs or respect window + ascending lock rules. Carry to 2.1: 40P01 retry around outer hold tx, refuse nights without rate, retarget gate 1 to "exactly 1 HELD", validate before tx. Carry to 2.4: release takes all columns from locked values (`reserved = l.reserved - n, total = l.total`).

@@ -7,7 +7,7 @@ import java.util.UUID;
 import ma.nuzul.inventory.domain.InventoryChange;
 
 /**
- * Out-port for per-night room inventory. Never writes {@code reserved} outside the reservation flow; the
+ * Out-port for per-night room inventory. Only {@link #reserve} writes {@code reserved}; the
  * {@code inventory_no_oversell} CHECK stays the last line of defence.
  */
 public interface InventoryRepositoryPort {
@@ -19,4 +19,13 @@ public interface InventoryRepositoryPort {
      * @return the nights actually written; a requested night missing from it was refused (total below reserved)
      */
     Set<LocalDate> upsertTotals(UUID roomTypeId, List<InventoryChange> changes);
+
+    /**
+     * Adds {@code rooms} to {@code reserved} on each night of [checkIn, checkOut) that exists and has that many rooms
+     * left, in one statement. Never changes {@code total}. Must be called inside a transaction: the caller rolls back
+     * when fewer nights than stayed were updated.
+     *
+     * @return the number of nights updated; fewer than the nights stayed means a night is missing or full
+     */
+    int reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
 }

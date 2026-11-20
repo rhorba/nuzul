@@ -59,18 +59,31 @@ OutboxEvent(id, aggregate, type, payload JSONB, created_at, published_at)
 **Inventory is counted per night, per room type**, the way Booking.com does it, not per physical room. Physical room assignment happens at the front desk and is out of scope.
 
 ### Inventory logic: the double-booking guard (the core of the interview)
-Reserving `n` rooms for `[check_in, check_out)` runs inside one transaction:
+Reserving `n` rooms for `[check_in, check_out)` runs inside one transaction, as one statement:
 ```sql
-UPDATE room_inventory
-   SET reserved = reserved + :n
- WHERE room_type_id = :rt
-   AND night >= :check_in AND night < :check_out
-   AND reserved + :n <= total;
+WITH locked AS (
+  SELECT night, reserved, total FROM room_inventory
+   WHERE room_type_id = :rt AND night >= :check_in AND night < :check_out
+   ORDER BY night
+   FOR NO KEY UPDATE)
+UPDATE room_inventory r
+   SET reserved = l.reserved + :n, total = l.total
+  FROM locked l
+ WHERE r.room_type_id = :rt AND r.night >= :check_in AND r.night < :check_out
+   AND r.night = l.night
+   AND l.reserved + :n <= l.total;
 -- rows updated MUST equal the number of nights, otherwise ROLLBACK → 409 SOLD_OUT
+-- (a night with no room_inventory row is not updated, so it counts as sold out)
 ```
-- **One atomic conditional update.** Postgres takes the row locks, and the predicate is re-checked under the lock, so two concurrent requests for the last room cannot both succeed. No read-then-write gap.
-- **The `CHECK (reserved <= total)` constraint is the backstop.** Even a buggy code path cannot oversell.
-- **Deadlock avoidance:** every transaction touches nights in ascending date order.
+- **One atomic conditional update, decided on the locked values.** The CTE takes the row locks; a lock that had to wait returns the latest committed version (including this transaction's own earlier writes). The guard `l.reserved + n <= l.total` and every non-key column of the new row come from those locked values, and the lock is held from the CTE through the UPDATE (and to commit), so nothing can change them in between. Two concurrent requests for the last room cannot both succeed, and a room released (or a total raised) while we waited is sold. No read-then-write gap.
+- **`r` only locates the row**, through the immutable key columns `(room_type_id, night)`.
+- **Why every non-key column, `total` included.** Under READ COMMITTED the target row is the version the statement snapshot saw. Postgres builds a provisional new row from that snapshot tuple plus the SET list and evaluates the CHECK constraint on it *before* it detects the concurrent update and recomputes the row on the latest version. The provisional row must therefore already carry the real values. `total` is written back with the value held under our own lock: it is never changed.
+- **How we got here (reproduced on PG16, `ReserveLockWaitIT`).** A guard on `r` (`r.reserved + n <= r.total`) refused a room released while the request waited: a false SOLD_OUT. Moving the guard to `l` but computing `r.reserved + n` failed the CHECK (23514) on the same release, and `l.reserved + n` with `total` left to come from `r` failed it again after a concurrent total raise. Each provisional row carried a stale value from the snapshot tuple.
+- **The `CHECK (reserved <= total)` constraint is the backstop.** Even a buggy code path cannot oversell; a violation (23514) is never caught or translated.
+- **Deadlock avoidance: ordered locks.** The CTE locks the stay's nights in ascending date order (`ORDER BY night FOR NO KEY UPDATE`), the same order the bulk inventory upsert uses, so overlapping writers queue instead of deadlocking. Every writer of `room_inventory` follows this rule (database doc §3 rule 5). `FOR NO KEY UPDATE` because the key never changes. `ReserveDeadlockFreedomIT` is the regression guard: it stores the nights in reverse heap order and turns index and bitmap scans off in the reserve transactions, so nothing locks in night order by accident, and sets `deadlock_timeout` to 10 ms so a deadlock is reported at once. With the CTE it sees no deadlock; swapping in a plain range UPDATE (mutation check) fails its "no 40P01" assertion within seconds.
+- **Partition pruning.** The night range is repeated on `r`, so both sides of the statement touch only the stay's monthly partitions (`ReservePlanIT`).
+- **Still one round trip.** The lock and the guarded write are a single statement sent once; this is not option (b) below, which reads the locked rows back into the application and then sends a second statement.
+- **Never changes `total`.** Implemented by `InventoryReservations.reserve()` (inventory module API, propagation MANDATORY: it joins the hold transaction and never opens its own). A 40P01 retry, if any, wraps the caller's whole transaction (story 2.1), never `reserve()` itself.
 - Rejected options: (a) optimistic locking with `@Version` retries, which thrash under flash-sale contention; (b) `SELECT … FOR UPDATE` then update, which works but needs two round trips; (c) a distributed Redis lock, which adds a second source of truth and fails open on Redis failover.
 
 ### Holds and expiry
