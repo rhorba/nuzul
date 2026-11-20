@@ -32,3 +32,9 @@
 - Binding: system-design §"double-booking guard" (one atomic conditional UPDATE, rowcount == nights else 409 SOLD_OUT, ascending night order), database doc §3 (half-open, CHECK backstop).
 - Conflict found: the doc's plain range UPDATE does not guarantee ascending lock order (1.3 quality review) → needs ordered FOR NO KEY UPDATE CTE in the same statement; doc to be updated.
 - No HTTP endpoint (reservation module is 2.1): guard exposed as inventory module API, tested at that level. No new env vars.
+
+### [2026-11-20] [UNDERSTAND] — Story 1.5 seed data
+- Track: Standard (writes inventory/catalog data; must respect booking window + ascending lock rules).
+- Scope: 6 cities (Marrakech, Fès, Chefchaouen, Essaouira, Agadir, Tanger), ~60 hotels, room types, 180 days inventory + rates.
+- Gaps: Keycloak admin user has no pinned id → seeded owner_sub can't match its JWT sub; story 1.4 not on main (stacked-PR merge order).
+- Env vars: one new flag for enabling the seed (default off).

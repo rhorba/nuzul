@@ -68,3 +68,9 @@
 - Security: pass — guard cannot oversell (predicate on locked values + CHECK backstop untouched), MANDATORY tx so it can't run outside the caller's transaction, no swallowed 23514, no new endpoints/deps, no secrets.
 - Reviews: spec PASS; quality PASS round 2 (round 1 findings: false SOLD_OUT + pruning → fixed; blocker resolved by owner decision A)
 - Status: pass
+
+### [2026-11-20 21:40] [VERIFY] — Story 1.5 seed data
+- Tests: 148 unit + 161 IT passed / 0 failed (./mvnw verify, Testcontainers PG16); DemoSeederTest re-run after order-test hardening 2/2.
+- Security: pass — quality-reviewer PASS; stockedNights owner-checked (NOT_FOUND for others), not exposed over HTTP, parameterised SQL; seed default off; owner sub is a public realm id, no secrets.
+- Review fixes: run() logs instead of aborting startup (midnight rollover); single-instance seeding documented (advisory lock carried to 6.1 Helm); rates-before-totals order test; default-off context test.
+- Status: pass

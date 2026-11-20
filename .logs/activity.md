@@ -155,3 +155,19 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Summary: feature/1.4-reserve-guard @ d6be4d4, PR #5 (stacked on PR #4; auto-retargets to main when #4 merges)
 - CI: GREEN first run (api verify+Sonar, images build+Trivy, web)
 - Status: complete (awaiting owner merge of #4 then #5)
+
+### [2026-11-20] [PLAN] — Story 1.5 seed (awaiting confirmation)
+- B1 boundaries: seed module + type-level @NamedInterface on 4 admin use cases + types; pin Keycloak admin id; inventory read stockedNights(); env APP_SEED_ENABLED / APP_SEED_OWNER_SUB.
+- B2 seeder: SeedCatalog (6 cities x 10 hotels, 2-4 room types), DemoSeeder ApplicationRunner, idempotent + top-up missing nights (rates before totals).
+- B3 tests: SeedCatalogTest, DemoSeederIT (counts, rerun no-op, clock+1 top-up, admin edits kept), ModularityTest green.
+
+### [2026-11-20] [EXECUTE] — Story 1.5 Batch 1 (boundaries + config)
+- New module ma.nuzul.seed; @NamedInterface("admin") on 4 admin use cases + HotelDetails/RoomTypeDetails/PageResult; package-level @NamedInterface("domain") on catalog.domain + inventory.domain.
+- ManageInventoryUseCase.stockedNights(ownerSub, roomTypeId) → port stockedNights(from, toExclusive), JDBC adapter, in-memory fake.
+- Keycloak admin id pinned 5f0c3a1e-…1f35; app.seed.enabled/owner-sub; .env.example APP_SEED_ENABLED/APP_SEED_OWNER_SUB.
+- ModularityTest 2/2, HexagonalArchitectureTest 3/3, InventoryAdminServiceTest 11/11 green.
+
+### [2026-11-20] [EXECUTE] — Story 1.5 Batches 2-3 (seeder + tests)
+- seed/SeedCatalog (60 fictional hotels, 180 room types, weekend +20%, no randomness), seed/DemoSeeder (ApplicationRunner, @ConditionalOnProperty app.seed.enabled; rates before totals; only nights with no inventory row).
+- Tests: SeedCatalogTest 5, InventoryAdminServiceTest +2 (stockedNights), DemoSeederIT 2 (full seed ~4s, rerun no-op, +1 day = 180 nights, admin edit kept).
+- Fix: room-type rotation gave 174; shifted to (i+1)%3 → 30/city.

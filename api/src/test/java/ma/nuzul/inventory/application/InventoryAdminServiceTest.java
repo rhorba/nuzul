@@ -153,4 +153,25 @@ class InventoryAdminServiceTest {
         assertThat(e.code()).isEqualTo(DomainValidationException.VALIDATION_FAILED);
         assertThat(repo.upsertCalls).isEqualTo(callsBefore);
     }
+
+    @Test
+    void stockedNightsListsOnlyNightsInsideTheWindow() {
+        repo.seed(roomTypeId, TODAY.minusDays(1), 5, 0);
+        repo.seed(roomTypeId, TODAY, 5, 0);
+        repo.seed(roomTypeId, TODAY.plusDays(BookingWindow.DAYS - 1), 5, 5);
+        repo.seed(roomTypeId, TODAY.plusDays(BookingWindow.DAYS), 5, 0);
+
+        assertThat(service.stockedNights(OWNER, roomTypeId))
+                .containsExactlyInAnyOrder(TODAY, TODAY.plusDays(BookingWindow.DAYS - 1));
+    }
+
+    @Test
+    void stockedNightsOfAnotherOwnersRoomTypeIsNotFound() {
+        repo.seed(roomTypeId, TODAY, 5, 0);
+
+        var e = thrown(() -> service.stockedNights("intruder", roomTypeId));
+
+        assertThat(e).isInstanceOf(NotFoundException.class);
+        assertThat(e.code()).isEqualTo(InventoryAdminService.ROOM_TYPE_NOT_FOUND);
+    }
 }

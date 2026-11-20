@@ -35,3 +35,7 @@ app:
   hold-minutes: ${APP_HOLD_MINUTES:10}
   cors-origin: ${APP_CORS_ORIGIN:http://localhost:4200}
   time-zone: ${APP_TIME_ZONE:Africa/Casablanca}
+  seed:
+    # Demo data (story 1.5). Off by default; the owner is the realm-pinned admin@nuzul.local user id.
+    enabled: ${APP_SEED_ENABLED:false}
+    owner-sub: ${APP_SEED_OWNER_SUB:5f0c3a1e-7b2d-4c8e-9a41-2d6e8b7a1f35}

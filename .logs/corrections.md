@@ -20,3 +20,6 @@
 ### [2026-11-19 17:40] [CORRECTION] — 1.4 guard: reviewer's fix also wrong; adopt SET from locked values
 - Reviewer's SQL (guard on l, SET r.reserved + n) turned the false SOLD_OUT into a 23514 CHECK violation on a released room: the new value is built from the stale snapshot tuple of r. Reproduced by implementer in ReserveLockWaitIT and on raw PG16.
 - Decision (orchestrator, within approved Balanced approach): `SET reserved = l.reserved + :rooms` + guard on l + night range on r. r only locates the row via immutable columns; l holds the locked latest values; lock held CTE→UPDATE so the value is exact. Doc/comment to state this, drop the EvalPlanQual claim.
+
+### [2026-11-20] [CORRECTION] — Story 1.5 named interfaces
+- Plan said type-level @NamedInterface on domain types; that breaks domainHasNoFrameworkDependencies. Switched domain to package-level (package-info) and excluded package-info from that ArchUnit rule only.

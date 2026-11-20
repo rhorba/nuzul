@@ -60,4 +60,15 @@ class InMemoryInventoryRepository implements InventoryRepositoryPort {
         }
         return updated;
     }
+
+    @Override
+    public Set<LocalDate> stockedNights(UUID roomTypeId, LocalDate from, LocalDate toExclusive) {
+        Set<LocalDate> stocked = new HashSet<>();
+        for (LocalDate night : rows.getOrDefault(roomTypeId, Map.of()).keySet()) {
+            if (!night.isBefore(from) && night.isBefore(toExclusive)) {
+                stocked.add(night);
+            }
+        }
+        return stocked;
+    }
 }

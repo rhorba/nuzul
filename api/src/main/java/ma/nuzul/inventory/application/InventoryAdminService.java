@@ -57,4 +57,14 @@ class InventoryAdminService implements ManageInventoryUseCase {
                     Map.of("nights", refused));
         }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<LocalDate> stockedNights(String ownerSub, UUID roomTypeId) {
+        if (!ownership.isOwnedBy(roomTypeId, ownerSub)) {
+            throw new NotFoundException(ROOM_TYPE_NOT_FOUND, "Room type " + roomTypeId + " not found");
+        }
+        BookingWindow window = new BookingWindow(LocalDate.now(clock));
+        return Set.copyOf(inventory.stockedNights(roomTypeId, window.today(), window.endExclusive()));
+    }
 }
