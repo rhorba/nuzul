@@ -79,3 +79,9 @@
 - Tests: SeedCatalogTest 5/5 + DemoSeederTest 2/2 pass (priceOn weekend/weekday cases covered); no other code changed since full verify (148 unit + 161 IT).
 - Security: pass (no change in surface)
 - Status: pass
+
+### [2026-11-20 23:30] [VERIFY] — Story 2.1 Hold + idempotency
+- Tests: 174 unit + 180 IT passed / 0 failed (./mvnw verify, Testcontainers PG16 + Redis 7.4). Gates: LastRoomConcurrencyIT (hold path) 2/2, IdempotencyIT 3/3, IdempotencyRedisDownIT 3/3, plus MultiNightAtomicityIT unchanged.
+- Security: pass — quality-reviewer PASS (no critical/high). Guest only from JWT; key lookup filtered by guest_sub; Redis key unambiguous; logs carry no PII; GUEST role at filter + @PreAuthorize.
+- Review fixes: null-safe hold_expires_at mapping; total > NUMERIC(12,2) → 400; Javadoc placement; readOnly note. Deferred: hanging-Redis (timeout) test.
+- Status: pass

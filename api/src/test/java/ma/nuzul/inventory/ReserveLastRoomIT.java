@@ -22,21 +22,22 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Release gate 1 (test strategy): many concurrent requests for the last rooms. Every request runs reserve() in its
+ * The inventory half of release gate 1 (the full gate, through the hold, is reservation.LastRoomConcurrencyIT): many
+ * concurrent requests for the last rooms. Every request runs reserve() in its
  * own transaction, all released at once behind a start gate on 200 threads (50 for the multi-night case). They
  * share a Hikari pool of 50, so up to 50 transactions contend for the row locks in Postgres at once. Exactly the
  * available rooms are sold, every other request is SOLD_OUT, nothing else is thrown, and the database never
  * oversells.
  */
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest(properties = LastRoomConcurrencyIT.POOL_50)
-class LastRoomConcurrencyIT {
+@SpringBootTest(properties = ReserveLastRoomIT.POOL_50)
+public class ReserveLastRoomIT {
 
     /**
      * A Hikari pool of 50 (default 10) so up to 50 transactions contend in Postgres at once. Shared with
      * ReserveDeadlockFreedomIT: same properties, so one extra Spring context (and container) for both.
      */
-    static final String POOL_50 = "spring.datasource.hikari.maximum-pool-size=50";
+    public static final String POOL_50 = "spring.datasource.hikari.maximum-pool-size=50";
 
     private static final long TIMEOUT_SECONDS = 60;
 

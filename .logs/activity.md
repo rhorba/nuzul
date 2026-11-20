@@ -180,3 +180,24 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-20 22:10] [SHIP] — Story 1.5 seed data (Sprint 1 complete)
 - Summary: feature/1.5-seed @ 7f92eae pushed; PR #7 → main (depends on PR #6 = story 1.4 onto main).
 - Status: complete
+
+### [2026-11-20] [PLAN] — Story 2.1 Hold (awaiting confirmation)
+- B1 published APIs: catalog BookableRoomTypes.hotelOf (ACTIVE only); inventory StayPricing.price (SQL sum, refuse missing rate → SOLD_OUT).
+- B2 reservation core: HoldRequest validation pre-tx; HoldTransaction (@Transactional + @Retryable 40P01/40001): price → INSERT reservation (HELD) → reserve(); JDBC adapter; 23505 → replay or 422 IDEMPOTENCY_KEY_REUSED; controller POST /api/v1/reservations (GUEST).
+- B3 Redis: starter-data-redis, short timeouts, IdempotencyCache GET/SET after commit, fail-open; Testcontainers redis.
+- B4 gates: LastRoomConcurrencyIT retargeted to hold path (exactly 1 HELD) + old reserve-level kept as ReserveLastRoomIT; IdempotencyIT (5x parallel, Redis down); HoldIT (API contract, validation, auth); design doc update.
+
+### [2026-11-20] [EXECUTE] — Story 2.1 Batch 1 (published lookups)
+- catalog.BookableRoomTypes.hotelOf (ACTIVE hotels only) + adapter/JPQL; inventory.StayPricing.price (SQL count+sum over [in,out), missing rate → SOLD_OUT) + RateRepositoryPort.priceNights.
+- StayPricingServiceTest 4/4, BookingLookupsIT 4/4, Modularity/Hexagonal green.
+
+### [2026-11-20] [EXECUTE] — Story 2.1 Batch 2 (reservation core)
+- reservation module: domain (HoldRequest, Guest, Reservation, ReservationStatus), HoldService (pre-tx validation + window, PG key pre-check, RetryTemplate on PessimisticLockingFailureException ×3), HoldTransaction (price → INSERT … ON CONFLICT ON CONSTRAINT reservation_idem DO NOTHING → reserve), JdbcReservationRepository, ReservationController POST /api/v1/reservations (GUEST, Idempotency-Key UUID header, guest from JWT name/email claims).
+- shared: UnprocessableException → 422; SecurityConfig /api/v1/reservations/** hasRole GUEST.
+- HoldServiceTest 12/12.
+
+### [2026-11-20] [EXECUTE] — Story 2.1 Batches 3-4 (Redis cache + gates)
+- Redis: spring-boot-starter-data-redis (timeouts 300ms), IdempotencyCache port + RedisIdempotencyCache (v1 pipe line, 24h TTL, fail-open); HoldService order: Redis → PG key → window → hotel → retried tx → cache put. Testcontainers redis service connection.
+- Gate 1 retargeted: reservation.LastRoomConcurrencyIT through the hold (200 guests → exactly 1 HELD, no stray rows; 50 → 5 over 3 nights); inventory-level kept as ReserveLastRoomIT.
+- Gate 3: IdempotencyIT 3/3 + IdempotencyRedisDownIT 3/3 (5 parallel → 1 row, 5 identical 201s). HoldIT 7/7. RedisIdempotencyCacheTest 5, HoldServiceTest 16.
+- docs/system-design §Idempotency updated (PENDING/IN_PROGRESS step removed).

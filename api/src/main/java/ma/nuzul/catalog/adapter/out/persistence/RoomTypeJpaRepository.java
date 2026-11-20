@@ -36,4 +36,13 @@ interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, UUID> {
               and exists (select 1 from HotelJpaEntity h where h.id = r.hotelId and h.ownerSub = :owner)
             """)
     boolean existsOwned(@Param("id") UUID id, @Param("owner") String ownerSub);
+
+    /** For other modules (BookableRoomTypes): the room type's hotel id, only when that hotel is ACTIVE. */
+    @Query("""
+            select r.hotelId from RoomTypeJpaEntity r
+            where r.id = :id
+              and exists (select 1 from HotelJpaEntity h
+                          where h.id = r.hotelId and h.status = ma.nuzul.catalog.domain.HotelStatus.ACTIVE)
+            """)
+    Optional<UUID> findBookableHotelId(@Param("id") UUID id);
 }

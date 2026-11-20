@@ -5,6 +5,7 @@ import ma.nuzul.shared.error.CodedException;
 import ma.nuzul.shared.error.ConflictException;
 import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.error.UnprocessableException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +42,11 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     ProblemDetail handleConflict(ConflictException ex) {
         return problem(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(UnprocessableException.class)
+    ProblemDetail handleUnprocessable(UnprocessableException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex);
     }
 
     @ExceptionHandler(DomainValidationException.class)

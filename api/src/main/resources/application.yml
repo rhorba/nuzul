@@ -14,6 +14,13 @@ spring:
       ddl-auto: validate
   flyway:
     locations: classpath:db/migration
+  data:
+    redis:
+      # Idempotency response cache only (never authoritative): short timeouts so a Redis outage costs a hold
+      # ~0.5 s at most before it falls back to the Postgres unique constraint.
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 300ms
+      connect-timeout: 300ms
   security:
     oauth2:
       resourceserver:

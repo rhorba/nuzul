@@ -46,3 +46,8 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 - Chosen: 🟡 Java seeder (ApplicationRunner, app.seed.enabled default off) through existing use cases; fixed random seed; idempotent with night top-up; pin Keycloak admin id for owner_sub.
 - Rejected: 🟢 Flyway SQL (bypasses domain rules, window goes stale); 🔴 daily top-up job (YAGNI until ShedLock in 2.4).
 - Also: new PR feature/1.4-reserve-guard → main to repair stacked-merge gap.
+
+### [2026-11-20] [BRAINSTORM] — Story 2.1 idempotency
+- Chosen: 🟡 Redis response cache (GET → replay) + Postgres serializes: reservation row inserted BEFORE reserve(), parallel duplicate waits on UNIQUE(guest_sub, idempotency_key), gets 23505, replays the stored row. Redis SET after commit (24 h); Redis down → PG path only. Drops design step "PENDING NX / 409 IN_PROGRESS" (conflicts with gate 3) → update system-design doc.
+- Key reuse with different body → 422 IDEMPOTENCY_KEY_REUSED.
+- Rejected: 🟢 PG only (no Redis CV signal yet); 🔴 NX lock + polling (flaky gate 3).

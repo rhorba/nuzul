@@ -23,3 +23,6 @@
 
 ### [2026-11-20] [CORRECTION] — Story 1.5 named interfaces
 - Plan said type-level @NamedInterface on domain types; that breaks domainHasNoFrameworkDependencies. Switched domain to package-level (package-info) and excluded package-info from that ArchUnit rule only.
+
+### [2026-11-20] [CORRECTION] — Story 2.1 duplicate-key handling
+- Plan said catch 23505 then replay outside the tx. Switched to INSERT … ON CONFLICT ON CONSTRAINT reservation_idem DO NOTHING: same wait-on-unique-index behaviour, no aborted transaction, replay read inside the same tx. Spring 7 RetryTemplate (programmatic) instead of @Retryable to make retry-outside-transaction ordering explicit.

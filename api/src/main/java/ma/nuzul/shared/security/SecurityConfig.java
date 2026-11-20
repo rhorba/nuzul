@@ -36,6 +36,8 @@ class SecurityConfig {
                          */
                         .requestMatchers("/api/v1/admin/hotels/**", "/api/v1/admin/room-types/**")
                         .hasRole("HOTEL_ADMIN")
+                        .requestMatchers("/api/v1/reservations/**")
+                        .hasRole("GUEST")
                         .anyRequest()
                         .authenticated())
                 .oauth2ResourceServer(rs -> rs.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))

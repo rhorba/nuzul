@@ -6,6 +6,7 @@ import java.util.stream.Stream;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -43,5 +44,12 @@ public class TestcontainersConfiguration {
         return new PostgreSQLContainer(nuzulPostgresImage())
                 .withDatabaseName(DB)
                 .withUsername(DB);
+    }
+
+    /** The idempotency cache (story 2.1). Same image as compose.yaml. */
+    @Bean
+    @ServiceConnection(name = "redis")
+    GenericContainer<?> redisContainer() {
+        return new GenericContainer<>(DockerImageName.parse("redis:7.4.12-alpine")).withExposedPorts(6379);
     }
 }

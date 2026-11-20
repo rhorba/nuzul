@@ -43,7 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>Effective database concurrency: {@value #WRITERS_DESCRIPTION}.
  */
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest(properties = LastRoomConcurrencyIT.POOL_50)
+@SpringBootTest(properties = ReserveLastRoomIT.POOL_50)
 class ReserveDeadlockFreedomIT {
 
     private static final String DEADLOCK_DETECTED = "40P01";
