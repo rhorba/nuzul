@@ -1,5 +1,6 @@
 package ma.nuzul.inventory.adapter.out.persistence;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import ma.nuzul.inventory.application.RateRepositoryPort;
@@ -43,5 +44,19 @@ class JdbcRateRepository implements RateRepositoryPort {
                 .param("prices", prices)
                 .param("refundables", refundables)
                 .update();
+    }
+
+    @Override
+    public PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        return jdbc.sql("""
+                        SELECT count(*) AS nights, coalesce(sum(price_mad), 0.00) AS total
+                        FROM rate
+                        WHERE room_type_id = :roomTypeId AND night >= :checkIn AND night < :checkOut
+                        """)
+                .param("roomTypeId", roomTypeId)
+                .param("checkIn", checkIn)
+                .param("checkOut", checkOut)
+                .query((rs, i) -> new PricedNights(rs.getInt("nights"), rs.getBigDecimal("total")))
+                .single();
     }
 }

@@ -41,6 +41,12 @@ public final class AdminApi {
         return jwt().jwt(j -> j.subject("guest-1")).authorities(new SimpleGrantedAuthority("ROLE_GUEST"));
     }
 
+    /** A GUEST token with the OIDC claims the hold reads (name, email), as Keycloak issues them. */
+    public static JwtRequestPostProcessor guest(String sub) {
+        return jwt().jwt(j -> j.subject(sub).claim("name", "Amina Guest").claim("email", sub + "@guest.test"))
+                .authorities(new SimpleGrantedAuthority("ROLE_GUEST"));
+    }
+
     public static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder b, String body) {
         return b.contentType(MediaType.APPLICATION_JSON).content(body);
     }

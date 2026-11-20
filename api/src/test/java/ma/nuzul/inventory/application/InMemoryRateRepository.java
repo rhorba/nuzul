@@ -39,4 +39,18 @@ class InMemoryRateRepository implements RateRepositoryPort {
             nights.put(c.night(), new Row(c.priceMad(), c.refundable(), hours));
         }
     }
+
+    @Override
+    public PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        int nights = 0;
+        BigDecimal total = new BigDecimal("0.00");
+        for (LocalDate night : checkIn.datesUntil(checkOut).toList()) {
+            Row row = row(roomTypeId, night);
+            if (row != null) {
+                nights++;
+                total = total.add(row.priceMad());
+            }
+        }
+        return new PricedNights(nights, total);
+    }
 }

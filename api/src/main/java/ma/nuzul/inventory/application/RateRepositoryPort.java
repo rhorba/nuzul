@@ -1,5 +1,7 @@
 package ma.nuzul.inventory.application;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import ma.nuzul.inventory.domain.RateChange;
@@ -15,4 +17,9 @@ public interface RateRepositoryPort {
      * {@code free_cancel_hours}: an insert takes the column default, an update leaves it unchanged.
      */
     void upsertRates(UUID roomTypeId, List<RateChange> changes);
+
+    /** How many nights of [checkIn, checkOut) have a rate, and the sum of their prices (0.00 when none). */
+    PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut);
+
+    record PricedNights(int nights, BigDecimal totalMad) {}
 }

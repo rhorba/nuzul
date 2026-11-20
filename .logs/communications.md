@@ -38,3 +38,11 @@
 - Scope: 6 cities (Marrakech, Fès, Chefchaouen, Essaouira, Agadir, Tanger), ~60 hotels, room types, 180 days inventory + rates.
 - Gaps: Keycloak admin user has no pinned id → seeded owner_sub can't match its JWT sub; story 1.4 not on main (stacked-PR merge order).
 - Env vars: one new flag for enabling the seed (default off).
+
+### [2026-11-20] [UNDERSTAND] — Story 2.1 Hold (POST /reservations + Idempotency-Key)
+- Track: Standard (new module behaviour, concurrency gate, Redis introduced). Specialists: backend-dev lead, DBA (lock/insert order), test-architect (gates 1+3), security (guest from JWT).
+- Scope: POST /api/v1/reservations → 201 {id, status HELD, holdExpiresAt, totalMad} · 409 SOLD_OUT; Idempotency-Key UUID header required; Redis + UNIQUE(guest_sub, idempotency_key); IdempotencyIT (5x parallel → 1 reservation, 5 identical; works with Redis stopped).
+- Carried: 40P01 retry around outer hold tx; refuse nights without rate; retarget gate 1 (LastRoomConcurrencyIT) to exactly 1 HELD via the hold path; validate before tx.
+- Found: gate 3 ("5 identical responses" in parallel) conflicts with design step 1 ("409 IN_PROGRESS" when PENDING) → needs a decision.
+- Env vars: REDIS_URL already in .env.example; APP_HOLD_MINUTES exists. No new values needed.
+- Out (later stories): outbox row (3.1), rate limits / active-hold cap (2.5), confirm (2.2).
