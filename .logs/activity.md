@@ -174,3 +174,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 
 ### [2026-11-20 21:55] [CI] — PR #6 green; PR #7 RED (SonarCloud gate)
 - PR #7 new_reliability_rating 4 > 1: java:S8696 x2 at SeedCatalog.java:24 (== on DayOfWeek). Fix: switch on getDayOfWeek().
+
+### [2026-11-20 22:10] [CI] — PR #7 GREEN after S8696 fix (api verify + Sonar, web, images all pass); PR #6 GREEN.
+
+### [2026-11-20 22:10] [SHIP] — Story 1.5 seed data (Sprint 1 complete)
+- Summary: feature/1.5-seed @ 7f92eae pushed; PR #7 → main (depends on PR #6 = story 1.4 onto main).
+- Status: complete

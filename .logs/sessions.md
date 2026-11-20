@@ -59,3 +59,8 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 ### [2026-11-20] SESSION_START (4)
 - Resumed from SESSION_END (3). Target: story 1.5 seed data.
 - Found: PR #5 merged into feature/1.3-bulk-inventory-rates AFTER PR #4 merged, so story 1.4 (d6be4d4) is NOT on main.
+
+### [2026-11-20] SESSION_END (4)
+**Done:** Found story 1.4 never reached main (stacked PR #5 merged into 1.3 branch after #4) → PR #6 (1.4 → main), CI green. Story 1.5: seed module (DemoSeeder + SeedCatalog), 60 hotels / 6 cities / 180 room types / 32,400 priced nights via admin use cases; idempotent, window top-up on restart, admin edits kept, rates before totals, failure never blocks startup, default off. stockedNights read in inventory. Modulith named interfaces; Keycloak admin id pinned. 148 unit + 161 IT, line 99.5%. PR #7 CI green (after Sonar S8696 fix).
+**Open for owner:** merge PR #6 FIRST, then PR #7. Recreate Keycloak container to pick up the pinned admin id.
+**Next:** Sprint 2 → story 2.1 Hold (POST /reservations + Idempotency-Key). Carry to 2.1: 40P01 retry around outer hold tx, refuse nights without rate, retarget gate 1 to "exactly 1 HELD", validate before tx. Carry to 2.4: release takes all columns from locked values. Carry to 6.1: advisory lock / single-replica guard for the seeder.
