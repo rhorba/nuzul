@@ -28,4 +28,7 @@ public interface InventoryRepositoryPort {
      * @return the number of nights updated; fewer than the nights stayed means a night is missing or full
      */
     int reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
+
+    /** The nights of this room type that have an inventory row in [from, toExclusive), any total. */
+    Set<LocalDate> stockedNights(UUID roomTypeId, LocalDate from, LocalDate toExclusive);
 }

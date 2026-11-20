@@ -107,4 +107,17 @@ class JdbcInventoryRepository implements InventoryRepositoryPort {
                 .param("rooms", rooms)
                 .update();
     }
+
+    @Override
+    public Set<LocalDate> stockedNights(UUID roomTypeId, LocalDate from, LocalDate toExclusive) {
+        return new HashSet<>(jdbc.sql("""
+                        SELECT night FROM room_inventory
+                        WHERE room_type_id = :roomTypeId AND night >= :from AND night < :toExclusive
+                        """)
+                .param("roomTypeId", roomTypeId)
+                .param("from", from)
+                .param("toExclusive", toExclusive)
+                .query(LocalDate.class)
+                .list());
+    }
 }

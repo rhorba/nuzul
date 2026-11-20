@@ -15,6 +15,9 @@ class HexagonalArchitectureTest {
     static final ArchRule domainHasNoFrameworkDependencies = noClasses()
             .that()
             .resideInAPackage("..domain..")
+            // package-info only carries module metadata (@NamedInterface); it holds no domain code.
+            .and()
+            .doNotHaveSimpleName("package-info")
             .should()
             .dependOnClassesThat()
             .resideInAnyPackage("org.springframework..", "jakarta.persistence..", "org.hibernate..")

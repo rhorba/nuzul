@@ -55,3 +55,12 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **Done:** Story 1.4. InventoryReservations.reserve() (MANDATORY tx, 409 SOLD_OUT). Final guard: ordered FOR NO KEY UPDATE CTE + `SET reserved = l.reserved + :rooms, total = l.total`, guard on l, night range on r. Found & documented PG READ COMMITTED gotcha (CHECK evaluated on provisional snapshot-based row before EPQ) via 2 failed variants. Release gates LastRoomConcurrencyIT + MultiNightAtomicityIT, ReserveLockWaitIT, ReserveDeadlockFreedomIT (real regression guard), ReservePlanIT. 139 unit + 158 IT, line 99.3%. PR #5 CI green.
 **Open for owner:** merge PR #4, then PR #5 (stacked). Sprint 1 remaining: 1.5 seed data.
 **Next:** story 1.5 seed (6 cities, ~60 hotels, 180 days inventory) — must use the bulk APIs or respect window + ascending lock rules. Carry to 2.1: 40P01 retry around outer hold tx, refuse nights without rate, retarget gate 1 to "exactly 1 HELD", validate before tx. Carry to 2.4: release takes all columns from locked values (`reserved = l.reserved - n, total = l.total`).
+
+### [2026-11-20] SESSION_START (4)
+- Resumed from SESSION_END (3). Target: story 1.5 seed data.
+- Found: PR #5 merged into feature/1.3-bulk-inventory-rates AFTER PR #4 merged, so story 1.4 (d6be4d4) is NOT on main.
+
+### [2026-11-20] SESSION_END (4)
+**Done:** Found story 1.4 never reached main (stacked PR #5 merged into 1.3 branch after #4) → PR #6 (1.4 → main), CI green. Story 1.5: seed module (DemoSeeder + SeedCatalog), 60 hotels / 6 cities / 180 room types / 32,400 priced nights via admin use cases; idempotent, window top-up on restart, admin edits kept, rates before totals, failure never blocks startup, default off. stockedNights read in inventory. Modulith named interfaces; Keycloak admin id pinned. 148 unit + 161 IT, line 99.5%. PR #7 CI green (after Sonar S8696 fix).
+**Open for owner:** merge PR #6 FIRST, then PR #7. Recreate Keycloak container to pick up the pinned admin id.
+**Next:** Sprint 2 → story 2.1 Hold (POST /reservations + Idempotency-Key). Carry to 2.1: 40P01 retry around outer hold tx, refuse nights without rate, retarget gate 1 to "exactly 1 HELD", validate before tx. Carry to 2.4: release takes all columns from locked values. Carry to 6.1: advisory lock / single-replica guard for the seeder.
