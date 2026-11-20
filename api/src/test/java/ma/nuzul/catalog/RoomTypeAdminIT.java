@@ -1,10 +1,15 @@
 package ma.nuzul.catalog;
 
+import static ma.nuzul.support.AdminApi.PROBLEM_JSON;
+import static ma.nuzul.support.AdminApi.admin;
+import static ma.nuzul.support.AdminApi.guest;
+import static ma.nuzul.support.AdminApi.json;
+import static ma.nuzul.support.AdminApi.ownerSub;
+import static ma.nuzul.support.AdminApi.roomTypes;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -17,6 +22,7 @@ import com.jayway.jsonpath.JsonPath;
 import java.util.Map;
 import java.util.UUID;
 import ma.nuzul.TestcontainersConfiguration;
+import ma.nuzul.support.AdminApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -24,12 +30,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /** Story 1.2: owner-scoped room-type admin CRUD under a hotel, end to end through security, MVC, JPA, Postgres. */
 @Import(TestcontainersConfiguration.class)
@@ -37,8 +39,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @AutoConfigureMockMvc
 class RoomTypeAdminIT {
 
-    private static final String HOTELS = "/api/v1/admin/hotels";
-    private static final String PROBLEM_JSON = "application/problem+json";
     private static final String DOUBLE_JSON = "{\"name\":\"Double\",\"capacity\":2,\"bedConfig\":\"1 queen\"}";
 
     @Autowired
@@ -48,42 +48,15 @@ class RoomTypeAdminIT {
     JdbcTemplate jdbc;
 
     /* Fresh owner subs per test: isolated from other tests and other IT classes, no FK-sensitive cleanup. */
-    private final String ownerA = "owner-a-" + UUID.randomUUID();
-    private final String ownerB = "owner-b-" + UUID.randomUUID();
-
-    private static JwtRequestPostProcessor admin(String sub) {
-        return jwt().jwt(j -> j.subject(sub)).authorities(new SimpleGrantedAuthority("ROLE_HOTEL_ADMIN"));
-    }
-
-    private static JwtRequestPostProcessor guest() {
-        return jwt().jwt(j -> j.subject("guest-1")).authorities(new SimpleGrantedAuthority("ROLE_GUEST"));
-    }
-
-    private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder b, String body) {
-        return b.contentType(MediaType.APPLICATION_JSON).content(body);
-    }
-
-    private static String roomTypes(String hotelId) {
-        return HOTELS + "/" + hotelId + "/room-types";
-    }
+    private final String ownerA = ownerSub("owner-a");
+    private final String ownerB = ownerSub("owner-b");
 
     private String createHotel(String owner) throws Exception {
-        String body = mvc.perform(json(post(HOTELS), "{\"name\":\"Riad\",\"city\":\"Fes\"}")
-                        .with(admin(owner)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return JsonPath.read(body, "$.id");
+        return AdminApi.createHotel(mvc, owner, AdminApi.MINIMAL_HOTEL_JSON);
     }
 
     private String createRoomType(String owner, String hotelId, String body) throws Exception {
-        String response = mvc.perform(json(post(roomTypes(hotelId)), body).with(admin(owner)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return JsonPath.read(response, "$.id");
+        return AdminApi.createRoomType(mvc, owner, hotelId, body);
     }
 
     private int roomTypeCount(String hotelId) {

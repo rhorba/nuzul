@@ -138,3 +138,20 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Summary: feature/1.3-bulk-inventory-rates @ c8637ff, PR #4
 - CI: run 44515874289 RED (unit tests tzdata-dependent: Africa/Casablanca offset differs CI vs local) → fixed → run 44516405302 api+web GREEN, images RED (transient Maven plugin resolution for jib, no code change) → job rerun GREEN (api verify+Sonar 1m44s, images build+Trivy, web 25s)
 - Status: complete (awaiting owner merge)
+
+### [2026-11-19 15:50] [PLAN] — Story 1.4 reserve() guard (5 pts), approved by owner
+- B1: shared IT support + StayRange + InventoryReservations.reserve() (ordered FOR NO KEY UPDATE CTE + conditional UPDATE, MANDATORY tx, 409 SOLD_OUT) + LastRoomConcurrencyIT + MultiNightAtomicityIT + ReserveDeadlockFreedomIT + doc updates. B2: verify/ship (rebase on main after PR #4).
+
+### [2026-11-19 16:50] [EXECUTE] — 1.4 reserve() guard + release gates (cts:implementer), review round 1
+- InventoryReservations (MANDATORY) + SoldOutException + StayRange/RoomCount + ordered-lock CTE; LastRoomConcurrencyIT, MultiNightAtomicityIT, ReserveDeadlockFreedomIT, InventoryReservationsIT; AdminApi test support; docs updated. 138 unit + 150 IT, line 99.3%.
+- Implementer mutation: guard predicate removed → both gates fail (good); plain range UPDATE → deadlock IT still passes (does not discriminate).
+- Spec review PASS. Quality review PASS but Medium #1: guard predicate evaluated on statement-snapshot row, not the locked latest version → concurrent capacity release yields FALSE SOLD_OUT (reproduced on PG16 scratch; never oversells). Medium #2: outer UPDATE lacks night range → no partition pruning. Lows: deadlock IT not a regression guard (heap order == night order), Hikari 10 caps contention, rule 5 should order (room_type_id, night), Javadoc for 2.1 tx constraints, nightList unused, shared test imports inventory, seed not replayable.
+
+### [2026-11-19 19:30] [EXECUTE] — 1.4 guard final (review rounds 2–3)
+- Final SQL: ordered FOR NO KEY UPDATE CTE + `SET reserved = l.reserved + :rooms, total = l.total` + guard on l + night range on r (owner decision A). ReserveLockWaitIT (5 cases incl. release / raise / lower while waiting), ReservePlanIT (pruning 38 → 1 partition), deadlock IT now a real regression guard (plain UPDATE → 40P01 assertion within 1.4 s), Hikari 50, docs rules 5–6.
+- Quality re-review PASS: 11 interleavings probed on PG16, no oversell / 23514 / total change; 4 lows fixed.
+
+### [2026-11-19 19:50] [SHIP] — Story 1.4 reserve() guard + release gates 1–2
+- Summary: feature/1.4-reserve-guard @ d6be4d4, PR #5 (stacked on PR #4; auto-retargets to main when #4 merges)
+- CI: GREEN first run (api verify+Sonar, images build+Trivy, web)
+- Status: complete (awaiting owner merge of #4 then #5)

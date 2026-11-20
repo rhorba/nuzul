@@ -1,10 +1,14 @@
 package ma.nuzul.catalog;
 
+import static ma.nuzul.support.AdminApi.PROBLEM_JSON;
+import static ma.nuzul.support.AdminApi.admin;
+import static ma.nuzul.support.AdminApi.guest;
+import static ma.nuzul.support.AdminApi.json;
+import static ma.nuzul.support.AdminApi.ownerSub;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.matchesPattern;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -19,6 +23,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import ma.nuzul.TestcontainersConfiguration;
+import ma.nuzul.support.AdminApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -26,12 +31,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /** Story 1.2: owner-scoped hotel admin CRUD, end to end through security, MVC, JPA and Postgres. */
 @Import(TestcontainersConfiguration.class)
@@ -39,8 +40,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @AutoConfigureMockMvc
 class HotelAdminIT {
 
-    private static final String BASE = "/api/v1/admin/hotels";
-    private static final String PROBLEM_JSON = "application/problem+json";
+    private static final String BASE = AdminApi.HOTELS;
     private static final String MALFORMED = "Malformed request";
 
     private static final String RIAD_JSON = """
@@ -54,33 +54,12 @@ class HotelAdminIT {
     @Autowired
     JdbcTemplate jdbc;
 
-    /*
-     * Fresh owner subs per test (JUnit builds a new instance per test method): no test can see another test's
-     * or another IT class's rows, so no cleanup is needed and nothing has to be deleted around room_type FKs.
-     */
-    private final String ownerA = "owner-a-" + UUID.randomUUID();
-    private final String ownerB = "owner-b-" + UUID.randomUUID();
-
-    private static JwtRequestPostProcessor admin(String sub) {
-        return jwt().jwt(j -> j.subject(sub)).authorities(new SimpleGrantedAuthority("ROLE_HOTEL_ADMIN"));
-    }
-
-    private static JwtRequestPostProcessor guest() {
-        return jwt().jwt(j -> j.subject("guest-1")).authorities(new SimpleGrantedAuthority("ROLE_GUEST"));
-    }
-
-    private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder b, String body) {
-        return b.contentType(MediaType.APPLICATION_JSON).content(body);
-    }
+    /* Fresh owner subs per test: see AdminApi.ownerSub. */
+    private final String ownerA = ownerSub("owner-a");
+    private final String ownerB = ownerSub("owner-b");
 
     private String createHotel(String owner, String name) throws Exception {
-        String body = mvc.perform(
-                        json(post(BASE), RIAD_JSON.replace("Riad Atlas", name)).with(admin(owner)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return JsonPath.read(body, "$.id");
+        return AdminApi.createHotel(mvc, owner, RIAD_JSON.replace("Riad Atlas", name));
     }
 
     private Map<String, Object> row(String id) {

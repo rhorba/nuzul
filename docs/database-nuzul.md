@@ -76,6 +76,8 @@ CREATE TABLE processed_event (consumer TEXT, event_id UUID, PRIMARY KEY (consume
 2. Night ranges are **half-open** `[check_in, check_out)`. Checkout day is not a night stayed.
 3. Money is `NUMERIC`, never `float`. Totals are computed in SQL from `rate` rows at hold time and frozen on the reservation.
 4. Hold expiry decrements inventory in the **same transaction** as the status change.
+5. Every writer of `room_inventory` (bulk upsert, reserve, expiry/cancel release) locks rows in **ascending `(room_type_id, night)` order**: nights ascending within a room type, and a transaction that touches several room types takes them in `room_type_id` order. Concurrent writers over overlapping rows then wait for each other and cannot deadlock.
+6. `total` is in every reserve's SET list, written back unchanged (system design, guard section). Any future trigger or CDC filter on capacity changes must use `WHEN (OLD.total IS DISTINCT FROM NEW.total)` or compare before/after values, never `UPDATE OF total`.
 
 ## 4. Integrity tests (Testcontainers)
 They assert that the DB refuses bad writes: oversell, a negative reserved count, `check_out <= check_in`, a duplicate idempotency key, an unknown status.

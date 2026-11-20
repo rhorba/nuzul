@@ -62,3 +62,9 @@
 - Tests: 112 unit passed / 0 failed locally; full IT suite unchanged since last pass.
 - Security: n/a (test-only change)
 - Status: pass
+
+### [2026-11-19 19:35] [VERIFY] — Story 1.4 reserve() guard + release gates 1–2
+- Tests: 139 unit + 158 IT passed / 0 failed (orchestrator's independent ./mvnw verify; concurrency ITs 3× green by implementer, no flakiness)
+- Security: pass — guard cannot oversell (predicate on locked values + CHECK backstop untouched), MANDATORY tx so it can't run outside the caller's transaction, no swallowed 23514, no new endpoints/deps, no secrets.
+- Reviews: spec PASS; quality PASS round 2 (round 1 findings: false SOLD_OUT + pruning → fixed; blocker resolved by owner decision A)
+- Status: pass
