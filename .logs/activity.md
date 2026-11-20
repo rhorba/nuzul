@@ -201,3 +201,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Gate 1 retargeted: reservation.LastRoomConcurrencyIT through the hold (200 guests → exactly 1 HELD, no stray rows; 50 → 5 over 3 nights); inventory-level kept as ReserveLastRoomIT.
 - Gate 3: IdempotencyIT 3/3 + IdempotencyRedisDownIT 3/3 (5 parallel → 1 row, 5 identical 201s). HoldIT 7/7. RedisIdempotencyCacheTest 5, HoldServiceTest 16.
 - docs/system-design §Idempotency updated (PENDING/IN_PROGRESS step removed).
+
+### [2026-11-21 00:00] [CI] — PR #8 GREEN (api verify + Sonar gate, web, images). Non-blocking Sonar MAJOR java:S8786 (backtracking regex) in HoldIT.java:88 test helper.
+
+### [2026-11-21 00:00] [SHIP] — Story 2.1 Hold + idempotency
+- Summary: feature/2.1-hold @ 3e8e573 pushed; PR #8 → main, CI green.
+- Status: complete
