@@ -171,3 +171,6 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - seed/SeedCatalog (60 fictional hotels, 180 room types, weekend +20%, no randomness), seed/DemoSeeder (ApplicationRunner, @ConditionalOnProperty app.seed.enabled; rates before totals; only nights with no inventory row).
 - Tests: SeedCatalogTest 5, InventoryAdminServiceTest +2 (stockedNights), DemoSeederIT 2 (full seed ~4s, rerun no-op, +1 day = 180 nights, admin edit kept).
 - Fix: room-type rotation gave 174; shifted to (i+1)%3 → 30/city.
+
+### [2026-11-20 21:55] [CI] — PR #6 green; PR #7 RED (SonarCloud gate)
+- PR #7 new_reliability_rating 4 > 1: java:S8696 x2 at SeedCatalog.java:24 (== on DayOfWeek). Fix: switch on getDayOfWeek().

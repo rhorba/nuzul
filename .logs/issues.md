@@ -74,3 +74,8 @@
 - Security: pass — quality-reviewer PASS; stockedNights owner-checked (NOT_FOUND for others), not exposed over HTTP, parameterised SQL; seed default off; owner sub is a public realm id, no secrets.
 - Review fixes: run() logs instead of aborting startup (midnight rollover); single-instance seeding documented (advisory lock carried to 6.1 Helm); rates-before-totals order test; default-off context test.
 - Status: pass
+
+### [2026-11-20 21:58] [VERIFY] — Story 1.5 Sonar S8696 fix
+- Tests: SeedCatalogTest 5/5 + DemoSeederTest 2/2 pass (priceOn weekend/weekday cases covered); no other code changed since full verify (148 unit + 161 IT).
+- Security: pass (no change in surface)
+- Status: pass

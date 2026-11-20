@@ -2,7 +2,6 @@ package ma.nuzul.seed;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,14 +19,14 @@ final class SeedCatalog {
 
         /** Friday and Saturday nights cost 20% more, rounded to a whole dirham. Exact BigDecimal, never a double. */
         BigDecimal priceOn(LocalDate night) {
-            DayOfWeek day = night.getDayOfWeek();
-            if (day == DayOfWeek.FRIDAY || day == DayOfWeek.SATURDAY) {
-                return basePriceMad
-                        .multiply(WEEKEND_MARKUP)
-                        .setScale(0, RoundingMode.HALF_UP)
-                        .setScale(2);
-            }
-            return basePriceMad;
+            return switch (night.getDayOfWeek()) {
+                case FRIDAY, SATURDAY ->
+                    basePriceMad
+                            .multiply(WEEKEND_MARKUP)
+                            .setScale(0, RoundingMode.HALF_UP)
+                            .setScale(2);
+                default -> basePriceMad;
+            };
         }
     }
 
