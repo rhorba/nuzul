@@ -45,6 +45,9 @@ CREATE INDEX reservation_guest ON reservation (guest_sub, created_at DESC);
 
 CREATE TABLE payment (id UUID PRIMARY KEY, reservation_id UUID NOT NULL REFERENCES reservation(id),
   provider_ref TEXT, status TEXT NOT NULL, amount_mad NUMERIC(12,2) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+-- V2 (story 2.2): closed status set + at most one active payment per reservation (the double-charge guard).
+ALTER TABLE payment ADD CONSTRAINT payment_status CHECK (status IN ('PENDING','CAPTURED','FAILED','REFUNDING','REFUNDED'));
+CREATE UNIQUE INDEX payment_one_active ON payment (reservation_id) WHERE status IN ('PENDING','CAPTURED');
 
 CREATE TABLE outbox_event (id UUID PRIMARY KEY, aggregate TEXT NOT NULL, type TEXT NOT NULL,
   payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), published_at TIMESTAMPTZ);

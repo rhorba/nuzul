@@ -3,6 +3,7 @@ package ma.nuzul.reservation.adapter.out.persistence;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,12 +30,13 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
             ON CONFLICT ON CONSTRAINT reservation_idem DO NOTHING
             """;
 
-    static final String FIND_BY_KEY = """
+    static final String SELECT_COLUMNS = """
             SELECT id, guest_sub, hotel_id, room_type_id, check_in, check_out, rooms, status, total_mad,
                    hold_expires_at, idempotency_key, guest_name, guest_email
-            FROM reservation
-            WHERE guest_sub = :guestSub AND idempotency_key = :idempotencyKey
-            """;
+            FROM reservation""";
+
+    static final String FIND_BY_KEY =
+            SELECT_COLUMNS + " WHERE guest_sub = :guestSub AND idempotency_key = :idempotencyKey";
 
     private final JdbcClient jdbc;
 
@@ -69,6 +71,31 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
                 .param("idempotencyKey", idempotencyKey)
                 .query(JdbcReservationRepository::map)
                 .optional();
+    }
+
+    @Override
+    public Optional<Reservation> findForGuest(UUID id, String guestSub) {
+        return jdbc.sql(SELECT_COLUMNS + " WHERE id = :id AND guest_sub = :guestSub")
+                .param("id", id)
+                .param("guestSub", guestSub)
+                .query(JdbcReservationRepository::map)
+                .optional();
+    }
+
+    @Override
+    public Optional<ReservationStatus> findStatus(UUID id) {
+        return jdbc.sql("SELECT status FROM reservation WHERE id = :id")
+                .param("id", id)
+                .query((rs, i) -> ReservationStatus.valueOf(rs.getString("status")))
+                .optional();
+    }
+
+    @Override
+    public boolean confirmIfHeld(UUID id, Instant now) {
+        return jdbc.sql("""
+                        UPDATE reservation SET status = 'CONFIRMED', version = version + 1
+                        WHERE id = :id AND status = 'HELD' AND hold_expires_at > :now
+                        """).param("id", id).param("now", Timestamp.from(now)).update() == 1;
     }
 
     /** Nullable column: only a HELD reservation needs one (later stories must not clear it on a held row). */

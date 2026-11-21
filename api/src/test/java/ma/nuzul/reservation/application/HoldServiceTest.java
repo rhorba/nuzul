@@ -328,5 +328,20 @@ class HoldServiceTest {
             }
             return Optional.ofNullable(byKey.get(guestSub + "|" + idempotencyKey));
         }
+
+        @Override
+        public Optional<Reservation> findForGuest(UUID id, String guestSub) {
+            throw new UnsupportedOperationException("not used by hold");
+        }
+
+        @Override
+        public Optional<ReservationStatus> findStatus(UUID id) {
+            throw new UnsupportedOperationException("not used by hold");
+        }
+
+        @Override
+        public boolean confirmIfHeld(UUID id, Instant now) {
+            throw new UnsupportedOperationException("not used by hold");
+        }
     }
 }

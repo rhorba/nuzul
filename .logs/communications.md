@@ -46,3 +46,9 @@
 - Found: gate 3 ("5 identical responses" in parallel) conflicts with design step 1 ("409 IN_PROGRESS" when PENDING) → needs a decision.
 - Env vars: REDIS_URL already in .env.example; APP_HOLD_MINUTES exists. No new values needed.
 - Out (later stories): outbox row (3.1), rate limits / active-hold cap (2.5), confirm (2.2).
+
+### [2026-11-21] [UNDERSTAND] — Story 2.2 Confirm via PaymentPort
+- Track: Standard (payments → never Quick; touches reservation + new payment module + a migration). Specialists: backend-dev lead, DBA (V2 migration, status guard), security (IDOR on /reservations/{id}), test-architect.
+- Scope: POST /api/v1/reservations/{id}/confirm {paymentToken} → 200 CONFIRMED · 410 HOLD_EXPIRED · 402 PAYMENT_FAILED; PaymentPort + FakePaymentAdapter (token ending 0002 fails); payment row; confirm retryable.
+- Key risk: confirm racing expiry (2.4) and double-click double charge; design rule "no external call inside a transaction".
+- Env vars: none new (fake adapter). Out: outbox ReservationConfirmed (3.1), email (3.4), reconciliation job (later).

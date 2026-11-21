@@ -4,7 +4,9 @@ import java.util.List;
 import ma.nuzul.shared.error.CodedException;
 import ma.nuzul.shared.error.ConflictException;
 import ma.nuzul.shared.error.DomainValidationException;
+import ma.nuzul.shared.error.GoneException;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.error.PaymentRequiredException;
 import ma.nuzul.shared.error.UnprocessableException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.TypeMismatchException;
@@ -42,6 +44,16 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     ProblemDetail handleConflict(ConflictException ex) {
         return problem(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(GoneException.class)
+    ProblemDetail handleGone(GoneException ex) {
+        return problem(HttpStatus.GONE, ex);
+    }
+
+    @ExceptionHandler(PaymentRequiredException.class)
+    ProblemDetail handlePaymentRequired(PaymentRequiredException ex) {
+        return problem(HttpStatus.PAYMENT_REQUIRED, ex);
     }
 
     @ExceptionHandler(UnprocessableException.class)

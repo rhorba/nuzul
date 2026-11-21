@@ -85,3 +85,10 @@
 - Security: pass — quality-reviewer PASS (no critical/high). Guest only from JWT; key lookup filtered by guest_sub; Redis key unambiguous; logs carry no PII; GUEST role at filter + @PreAuthorize.
 - Review fixes: null-safe hold_expires_at mapping; total > NUMERIC(12,2) → 400; Javadoc placement; readOnly note. Deferred: hanging-Redis (timeout) test.
 - Status: pass
+
+### [2026-11-21 14:30] [VERIFY] — Story 2.2 Confirm via PaymentPort
+- Tests: 199 unit + 192 IT passed / 0 failed (./mvnw verify). ConfirmIT 7/7 (5x parallel → 1 capture, one provider idempotency key; expiry during charge → REFUNDED + 410), PaymentIT 5/5, ConfirmServiceTest 12, PaymentServiceTest 10.
+- Security: pass — quality-reviewer: initial HIGH (refund vs capture race → confirmed + refunded) FIXED and re-reviewed PASS (claim PENDING→REFUNDING before provider call; capture boolean + tx2 rollback; now inside tx2). Medium (provider error after claim) FIXED with REFUNDING state. IDOR blocked (guest-scoped load), token never logged/persisted.
+- Also fixed: Redis health contributor disabled (fail-open cache must not turn /actuator/health DOWN; seen as flaky 503 in NuzulApiApplicationTests).
+- Open low: twin that loses capture to a refund claim answers 410 though its own hold may be valid (money consistent).
+- Status: pass
