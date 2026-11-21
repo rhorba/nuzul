@@ -58,3 +58,9 @@
 - Scope: POST /api/v1/reservations/{id}/cancel → 200 CANCELLED with refund flag from the rate; inventory released in the same tx as the status change (ordered FOR NO KEY UPDATE, all columns from locked values — carried from 2.1/2.4).
 - Gaps: reservation has no frozen cancellation policy (rate rows are admin-editable after booking); Payments.refund only handles PENDING (needs CAPTURED → REFUNDING); "cancel a HELD hold" not specified.
 - Env vars: none new. Out: cancellation email (3.4), outbox (3.1).
+
+### [2026-11-21] [UNDERSTAND] — Story 2.4 Hold expiry job + HoldExpiryIT (gate 4)
+- Track: Standard (data release + concurrency gate + new dependency/migration). Specialists: backend-dev lead, DBA (SKIP LOCKED, lock order, ShedLock table), test-architect (gate 4), devops (multi-pod scheduling).
+- Scope: every 30 s, HELD past hold_expires_at → EXPIRED + release inventory in the same tx, exactly once even with two schedulers racing; never clear hold_expires_at.
+- Constraint from 2.3 review: one reservation per transaction (batch row locks can deadlock with cancel/hold across room types). Design doc says "batches of 500" → keep 500 as the per-run cap, not the tx size.
+- Env vars: none required (cron/interval as app property with default).

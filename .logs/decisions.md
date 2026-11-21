@@ -60,3 +60,7 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 ### [2026-11-21] [BRAINSTORM] — Story 2.3 cancel
 - Policy frozen at hold (V3: reservation.refundable NOT NULL DEFAULT false, free_cancel_until TIMESTAMPTZ NULL; backfill from rates). refundable = every night refundable; deadline = check-in day 00:00 in app zone − strictest free_cancel_hours.
 - Cancellable: HELD (early release, no money) and CONFIRMED (refund when free). Rejected: live rates at cancel (admin edits change guest terms); CONFIRMED only.
+
+### [2026-11-21] [BRAINSTORM] — Story 2.4 expiry job
+- Chosen: 🟡 ShedLock 7.10.1 (JDBC provider, V4 shedlock table) on a 30 s schedule + per-reservation tx: SELECT … FOR UPDATE SKIP LOCKED (HELD, past hold_expires_at) → conditional HELD→EXPIRED → release. Up to 500 candidates per run (design doc's batch size reinterpreted as a per-run cap: one row per tx avoids cross-room-type deadlocks with cancel/hold).
+- Rejected: 🟢 no ShedLock (every pod scans); 🔴 metrics now (stack in 6.3). 7.11.0 skipped (< 2 weeks old).

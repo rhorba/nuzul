@@ -249,3 +249,8 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-21 18:30] [SHIP] — Story 2.3 Cancel with free-cancellation rule
 - Summary: feature/2.3-cancel @ 6fa40d9 pushed; PR #10 → main, CI green.
 - Status: complete
+
+### [2026-11-21] [PLAN] — Story 2.4 Expiry (awaiting confirmation)
+- B1 ShedLock deps + V4__shedlock.sql + SchedulingConfig (@EnableScheduling, @EnableSchedulerLock, JdbcTemplateLockProvider usingDbTime); app.expiry.* props (interval 30s, batch 500, enabled).
+- B2 ExpireHoldsUseCase: repo expiredHoldIds(now, limit) (index reservation_expiry), ExpiryTransaction.expire(id) (FOR UPDATE SKIP LOCKED + conditional + release), HoldExpiryJob (@Scheduled + @SchedulerLock).
+- B3 tests: ExpireHoldsServiceTest, HoldExpiryIT (gate 4: two schedulers racing, 50 holds → each released once; expiry vs confirm race; vs cancel; not-yet-expired untouched; hold_expires_at kept), ShedLock wiring IT; docs.
