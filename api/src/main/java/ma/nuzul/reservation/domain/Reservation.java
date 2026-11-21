@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * A reservation row. {@code totalMad} is frozen at hold time from the rate rows (database doc §3 rule 3);
  * {@code holdExpiresAt} is truncated to microseconds, the precision Postgres stores, so a value read back equals the
- * one first returned.
+ * one first returned. {@code cancellationPolicy} is frozen at hold time too.
  */
 public record Reservation(
         UUID id,
@@ -23,7 +23,8 @@ public record Reservation(
         Instant holdExpiresAt,
         UUID idempotencyKey,
         String guestName,
-        String guestEmail) {
+        String guestEmail,
+        CancellationPolicy cancellationPolicy) {
 
     /** Was this reservation created for exactly this request? (The idempotency key must not be reused.) */
     public boolean isFor(HoldRequest request) {

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 import ma.nuzul.inventory.SoldOutException;
 import ma.nuzul.inventory.StayPricing;
+import ma.nuzul.inventory.StayQuote;
 import ma.nuzul.inventory.domain.RoomCount;
 import ma.nuzul.inventory.domain.StayRange;
 import ma.nuzul.shared.error.DomainValidationException;
@@ -29,7 +30,7 @@ class StayPricingService implements StayPricing {
     }
 
     @Override
-    public BigDecimal price(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
+    public StayQuote quote(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
         if (roomTypeId == null) {
             throw new DomainValidationException("roomTypeId is required");
         }
@@ -44,6 +45,6 @@ class StayPricingService implements StayPricing {
         if (total.compareTo(MAX_TOTAL) > 0) {
             throw new DomainValidationException("the stay costs more than " + MAX_TOTAL + " MAD");
         }
-        return total;
+        return new StayQuote(total, priced.allRefundable(), priced.maxFreeCancelHours());
     }
 }

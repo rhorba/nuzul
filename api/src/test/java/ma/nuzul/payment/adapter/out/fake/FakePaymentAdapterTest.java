@@ -26,6 +26,9 @@ class FakePaymentAdapterTest {
 
     @Test
     void refundsReferenceTheCharge() {
-        assertThat(provider.refund("fake_ch_k3", amount)).isEqualTo("fake_re_fake_ch_k3");
+        assertThat(provider.refund("r1", "fake_ch_k3", amount)).isEqualTo("fake_re_r1");
+        assertThat(provider.refund("r1", "fake_ch_k3", amount))
+                .as("same key, same refund")
+                .isEqualTo("fake_re_r1");
     }
 }

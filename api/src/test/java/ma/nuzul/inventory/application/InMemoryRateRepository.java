@@ -44,13 +44,17 @@ class InMemoryRateRepository implements RateRepositoryPort {
     public PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
         int nights = 0;
         BigDecimal total = new BigDecimal("0.00");
+        boolean allRefundable = true;
+        int maxHours = 0;
         for (LocalDate night : checkIn.datesUntil(checkOut).toList()) {
             Row row = row(roomTypeId, night);
             if (row != null) {
                 nights++;
                 total = total.add(row.priceMad());
+                allRefundable &= row.refundable();
+                maxHours = Math.max(maxHours, row.freeCancelHours());
             }
         }
-        return new PricedNights(nights, total);
+        return new PricedNights(nights, total, nights > 0 && allRefundable, maxHours);
     }
 }

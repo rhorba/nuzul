@@ -32,4 +32,12 @@ public interface ReservationRepositoryPort {
      * @return true when this call confirmed it
      */
     boolean confirmIfHeld(UUID id, Instant now);
+
+    /**
+     * {@code from} -> CANCELLED, only if the reservation is still in {@code from}: one conditional UPDATE, so cancel,
+     * confirm and expiry never both win.
+     *
+     * @return true when this call cancelled it
+     */
+    boolean cancelIf(UUID id, ReservationStatus from);
 }

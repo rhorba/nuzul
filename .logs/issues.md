@@ -92,3 +92,9 @@
 - Also fixed: Redis health contributor disabled (fail-open cache must not turn /actuator/health DOWN; seen as flaky 503 in NuzulApiApplicationTests).
 - Open low: twin that loses capture to a refund claim answers 410 though its own hold may be valid (money consistent).
 - Status: pass
+
+### [2026-11-21 18:00] [VERIFY] — Story 2.3 Cancel with free-cancellation rule
+- Tests: 220 unit + 205 IT passed / 0 failed (./mvnw verify). CancelIT 9/9 (incl. cancel during confirm's charge, 5x parallel = one release + one distinct refund key), InventoryReleaseIT 4/4 (40 concurrent reserve/release, no deadlock), CancellationPolicyTest 6, CancelServiceTest 9.
+- Security: pass — quality-reviewer initial FAIL (HIGH duplicate provider refund calls) fixed via required refund idempotency key in the PaymentPort contract; re-review PASS. IDOR blocked (guest-scoped load), lock order reservation → inventory (ascending) → payment verified deadlock-free.
+- Open low: CancelIT static REFUND_KEYS assumes sequential test methods (default). Carry: Stripe adapter must send the refund key as Idempotency-Key; 2.4 expiry one reservation per tx.
+- Status: pass

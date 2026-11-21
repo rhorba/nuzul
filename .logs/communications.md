@@ -52,3 +52,9 @@
 - Scope: POST /api/v1/reservations/{id}/confirm {paymentToken} → 200 CONFIRMED · 410 HOLD_EXPIRED · 402 PAYMENT_FAILED; PaymentPort + FakePaymentAdapter (token ending 0002 fails); payment row; confirm retryable.
 - Key risk: confirm racing expiry (2.4) and double-click double charge; design rule "no external call inside a transaction".
 - Env vars: none new (fake adapter). Out: outbox ReservationConfirmed (3.1), email (3.4), reconciliation job (later).
+
+### [2026-11-21] [UNDERSTAND] — Story 2.3 Cancel with free-cancellation rule
+- Track: Standard (payments/refunds + inventory release + likely migration → never Quick). Specialists: backend-dev lead, DBA (release lock order, V3?), security (IDOR), test-architect (cancellation policy unit tests per test strategy).
+- Scope: POST /api/v1/reservations/{id}/cancel → 200 CANCELLED with refund flag from the rate; inventory released in the same tx as the status change (ordered FOR NO KEY UPDATE, all columns from locked values — carried from 2.1/2.4).
+- Gaps: reservation has no frozen cancellation policy (rate rows are admin-editable after booking); Payments.refund only handles PENDING (needs CAPTURED → REFUNDING); "cancel a HELD hold" not specified.
+- Env vars: none new. Out: cancellation email (3.4), outbox (3.1).

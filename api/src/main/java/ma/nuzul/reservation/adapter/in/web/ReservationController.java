@@ -3,6 +3,7 @@ package ma.nuzul.reservation.adapter.in.web;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
+import ma.nuzul.reservation.application.CancelReservationUseCase;
 import ma.nuzul.reservation.application.ConfirmReservationUseCase;
 import ma.nuzul.reservation.application.HeldReservation;
 import ma.nuzul.reservation.application.HoldReservationUseCase;
@@ -32,10 +33,15 @@ class ReservationController {
 
     private final HoldReservationUseCase holds;
     private final ConfirmReservationUseCase confirmations;
+    private final CancelReservationUseCase cancellations;
 
-    ReservationController(HoldReservationUseCase holds, ConfirmReservationUseCase confirmations) {
+    ReservationController(
+            HoldReservationUseCase holds,
+            ConfirmReservationUseCase confirmations,
+            CancelReservationUseCase cancellations) {
         this.holds = holds;
         this.confirmations = confirmations;
+        this.cancellations = cancellations;
     }
 
     /** 201 for the first call and for every replay of the same key: the body is identical each time. */
@@ -59,6 +65,12 @@ class ReservationController {
             @PathVariable UUID id,
             @Valid @RequestBody ConfirmReservationRequest request) {
         return confirmations.confirm(jwt.getSubject(), id, request.paymentToken());
+    }
+
+    /** 200 for the cancel and for every retry of it; another guest's reservation is 404, an expired hold 410. */
+    @PostMapping("/{id}/cancel")
+    CancelReservationUseCase.Cancelled cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return cancellations.cancel(jwt.getSubject(), id);
     }
 
     static Guest guest(Jwt jwt) {

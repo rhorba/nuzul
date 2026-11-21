@@ -20,6 +20,7 @@ import ma.nuzul.catalog.BookableRoomTypes;
 import ma.nuzul.inventory.InventoryReservations;
 import ma.nuzul.inventory.SoldOutException;
 import ma.nuzul.inventory.StayPricing;
+import ma.nuzul.inventory.StayQuote;
 import ma.nuzul.inventory.domain.BookingWindow;
 import ma.nuzul.reservation.domain.Guest;
 import ma.nuzul.reservation.domain.HoldRequest;
@@ -50,10 +51,13 @@ class HoldServiceTest {
     private final AtomicInteger lockFailuresLeft = new AtomicInteger();
     private boolean soldOut;
 
-    private final StayPricing pricing = (id, in, out, rooms) -> new BigDecimal("650.50")
-            .multiply(BigDecimal.valueOf(in.until(out).getDays()))
-            .multiply(BigDecimal.valueOf(rooms));
-    private final InventoryReservations inventory = (id, in, out, rooms) -> {
+    private final StayPricing pricing = (id, in, out, rooms) -> new StayQuote(
+            new BigDecimal("650.50")
+                    .multiply(BigDecimal.valueOf(in.until(out).getDays()))
+                    .multiply(BigDecimal.valueOf(rooms)),
+            true,
+            48);
+    private final InventoryReservations inventory = reserving((id, in, out, rooms) -> {
         if (lockFailuresLeft.getAndDecrement() > 0) {
             throw new CannotAcquireLockException("deadlock detected (40P01)");
         }
@@ -61,7 +65,7 @@ class HoldServiceTest {
             throw new SoldOutException();
         }
         reserveCalls.add(id + " " + in + " " + out + " " + rooms);
-    };
+    });
     private final BookableRoomTypes bookable = id -> id.equals(roomTypeId) ? Optional.of(hotelId) : Optional.empty();
 
     private final HoldService service = new HoldService(
@@ -71,6 +75,25 @@ class HoldServiceTest {
             cache,
             CLOCK,
             Duration.ofMillis(1));
+
+    /** The hold only reserves; release belongs to cancel and expiry. */
+    private interface Reserve {
+        void reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
+    }
+
+    private static InventoryReservations reserving(Reserve reserve) {
+        return new InventoryReservations() {
+            @Override
+            public void reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
+                reserve.reserve(roomTypeId, checkIn, checkOut, rooms);
+            }
+
+            @Override
+            public void release(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
+                throw new UnsupportedOperationException("not used by hold");
+            }
+        };
+    }
 
     private HoldRequest request(int fromDays, int nights, int rooms) {
         return new HoldRequest(roomTypeId, TODAY.plusDays(fromDays), TODAY.plusDays(fromDays + nights), rooms);
@@ -185,10 +208,10 @@ class HoldServiceTest {
                 new HoldTransaction(
                         reservations,
                         pricing,
-                        (id, in, out, rooms) -> {
+                        reserving((id, in, out, rooms) -> {
                             reserveCalls.add("attempt");
                             throw new DataIntegrityViolationException("check violation");
-                        },
+                        }),
                         CLOCK,
                         10),
                 reservations,
@@ -342,6 +365,11 @@ class HoldServiceTest {
         @Override
         public boolean confirmIfHeld(UUID id, Instant now) {
             throw new UnsupportedOperationException("not used by hold");
+        }
+
+        @Override
+        public boolean cancelIf(UUID id, ReservationStatus from) {
+            throw new UnsupportedOperationException("not used here");
         }
     }
 }

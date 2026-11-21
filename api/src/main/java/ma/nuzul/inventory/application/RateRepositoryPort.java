@@ -18,8 +18,11 @@ public interface RateRepositoryPort {
      */
     void upsertRates(UUID roomTypeId, List<RateChange> changes);
 
-    /** How many nights of [checkIn, checkOut) have a rate, and the sum of their prices (0.00 when none). */
+    /**
+     * How many nights of [checkIn, checkOut) have a rate, the sum of their prices (0.00 when none), whether all of them
+     * are refundable, and the largest free_cancel_hours among them.
+     */
     PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut);
 
-    record PricedNights(int nights, BigDecimal totalMad) {}
+    record PricedNights(int nights, BigDecimal totalMad, boolean allRefundable, int maxFreeCancelHours) {}
 }

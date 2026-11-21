@@ -62,7 +62,7 @@ class BookingLookupsIT {
         fx().rate(roomTypeId, night(1), "780.25");
         fx().rate(roomTypeId, night(2), "1.00");
 
-        assertThat(pricing.price(roomTypeId, night(0), night(2), 3)).isEqualTo(new BigDecimal("4291.05"));
+        assertThat(pricing.quote(roomTypeId, night(0), night(2), 3).totalMad()).isEqualTo(new BigDecimal("4291.05"));
     }
 
     @Test
@@ -70,7 +70,7 @@ class BookingLookupsIT {
         UUID roomTypeId = fx().roomType("owner-" + UUID.randomUUID());
         fx().rate(roomTypeId, night(0), "650.00");
 
-        assertThatThrownBy(() -> pricing.price(roomTypeId, night(0), night(2), 1))
+        assertThatThrownBy(() -> pricing.quote(roomTypeId, night(0), night(2), 1))
                 .isInstanceOf(SoldOutException.class);
     }
 }

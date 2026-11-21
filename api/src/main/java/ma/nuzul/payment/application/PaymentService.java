@@ -1,6 +1,7 @@
 package ma.nuzul.payment.application;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 import ma.nuzul.payment.ChargeResult;
 import ma.nuzul.payment.PaymentStatus;
@@ -84,8 +85,8 @@ class PaymentService implements Payments {
      * Claim first, then call the provider: the conditional PENDING -> REFUNDING update and capture's PENDING -> CAPTURED
      * update lock the same row, so exactly one of them wins and a captured payment is never refunded. REFUNDED is only
      * written after the provider confirmed: a provider error (or a crash) leaves REFUNDING, never a REFUNDED row whose
-     * money was not returned. A REFUNDING payment is refunded again on the next call; the provider deduplicates by the
-     * charge reference.
+     * money was not returned. A REFUNDING payment is refunded again on the next call; the provider deduplicates it by
+     * the refund idempotency key (PaymentPort contract).
      */
     @Override
     public boolean refund(UUID paymentId, String providerRef) {
@@ -107,10 +108,49 @@ class PaymentService implements Payments {
                 return false;
             }
         }
-        provider.refund(providerRef, payment.amountMad());
-        // provider_ref keeps the charge reference: a later charge() of this payment answers with it.
-        payments.transition(paymentId, PaymentStatus.REFUNDING, PaymentStatus.REFUNDED, null);
+        send(find(paymentId), providerRef);
         return true;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<UUID> claimRefund(UUID reservationId) {
+        return payments.findActive(reservationId)
+                .filter(p -> p.status() == PaymentStatus.CAPTURED)
+                .filter(p -> payments.transition(p.id(), PaymentStatus.CAPTURED, PaymentStatus.REFUNDING, null))
+                .map(PaymentRow::id);
+    }
+
+    @Override
+    public void finishRefund(UUID paymentId) {
+        requireNoTransaction("finishRefund");
+        PaymentRow payment = find(paymentId);
+        if (payment.status() == PaymentStatus.REFUNDING) {
+            send(payment, payment.providerRef());
+        } else if (payment.status() != PaymentStatus.REFUNDED) {
+            throw new IllegalStateException(
+                    "payment " + paymentId + " is " + payment.status() + ", not claimed for a refund");
+        }
+    }
+
+    @Override
+    public Optional<Refund> refundOf(UUID reservationId) {
+        return payments.findRefund(reservationId)
+                .map(p -> new Refund(p.id(), p.amountMad(), p.status() == PaymentStatus.REFUNDED));
+    }
+
+    /**
+     * REFUNDING -> provider -> REFUNDED. The payment id is the provider idempotency key, so two senders of one claimed
+     * refund (concurrent cancels, a retry after a timeout) return the money once. provider_ref keeps the charge
+     * reference (a later charge() answers with it).
+     */
+    private void send(PaymentRow payment, String fallbackChargeRef) {
+        if (payment.status() == PaymentStatus.REFUNDED) {
+            return;
+        }
+        String chargeRef = payment.providerRef() != null ? payment.providerRef() : fallbackChargeRef;
+        provider.refund("refund-" + payment.id(), chargeRef, payment.amountMad());
+        payments.transition(payment.id(), PaymentStatus.REFUNDING, PaymentStatus.REFUNDED, null);
     }
 
     private PaymentRow find(UUID paymentId) {

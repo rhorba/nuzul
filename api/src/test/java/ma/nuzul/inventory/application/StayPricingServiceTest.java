@@ -29,7 +29,7 @@ class StayPricingServiceTest {
         rate(1, "780.25");
         rate(2, "999.99");
 
-        assertThat(pricing.price(roomTypeId, IN, IN.plusDays(3), 2)).isEqualTo(new BigDecimal("4860.68"));
+        assertThat(pricing.quote(roomTypeId, IN, IN.plusDays(3), 2).totalMad()).isEqualTo(new BigDecimal("4860.68"));
     }
 
     @Test
@@ -37,7 +37,7 @@ class StayPricingServiceTest {
         rate(0, "500.00");
         rate(1, "9999.00");
 
-        assertThat(pricing.price(roomTypeId, IN, IN.plusDays(1), 1)).isEqualByComparingTo("500.00");
+        assertThat(pricing.quote(roomTypeId, IN, IN.plusDays(1), 1).totalMad()).isEqualByComparingTo("500.00");
     }
 
     @Test
@@ -45,7 +45,7 @@ class StayPricingServiceTest {
         rate(0, "500.00");
         rate(2, "500.00");
 
-        assertThatThrownBy(() -> pricing.price(roomTypeId, IN, IN.plusDays(3), 1))
+        assertThatThrownBy(() -> pricing.quote(roomTypeId, IN, IN.plusDays(3), 1))
                 .isInstanceOf(SoldOutException.class);
     }
 
@@ -55,17 +55,17 @@ class StayPricingServiceTest {
             rate(i, "99999999.99");
         }
 
-        assertThatThrownBy(() -> pricing.price(roomTypeId, IN, IN.plusDays(30), 9))
+        assertThatThrownBy(() -> pricing.quote(roomTypeId, IN, IN.plusDays(30), 9))
                 .isInstanceOf(DomainValidationException.class);
-        assertThat(pricing.price(roomTypeId, IN, IN.plusDays(30), 1)).isEqualByComparingTo("2999999999.70");
+        assertThat(pricing.quote(roomTypeId, IN, IN.plusDays(30), 1).totalMad()).isEqualByComparingTo("2999999999.70");
     }
 
     @Test
     void invalidInputIsRefusedBeforeAnyQuery() {
-        assertThatThrownBy(() -> pricing.price(null, IN, IN.plusDays(1), 1))
+        assertThatThrownBy(() -> pricing.quote(null, IN, IN.plusDays(1), 1))
                 .isInstanceOf(DomainValidationException.class);
-        assertThatThrownBy(() -> pricing.price(roomTypeId, IN, IN, 1)).isInstanceOf(DomainValidationException.class);
-        assertThatThrownBy(() -> pricing.price(roomTypeId, IN, IN.plusDays(1), 10))
+        assertThatThrownBy(() -> pricing.quote(roomTypeId, IN, IN, 1)).isInstanceOf(DomainValidationException.class);
+        assertThatThrownBy(() -> pricing.quote(roomTypeId, IN, IN.plusDays(1), 10))
                 .isInstanceOf(DomainValidationException.class);
     }
 }

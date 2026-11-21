@@ -108,4 +108,39 @@ class InventoryReservationServiceTest {
         assertThat(e).isInstanceOf(DomainValidationException.class);
         assertThat(repo.reserveCalls).isZero();
     }
+
+    @Test
+    void releaseGivesBackEveryNightOfTheStay() {
+        for (int i = 0; i < 3; i++) {
+            repo.seed(roomTypeId, D1.plusDays(i), 5, 3);
+        }
+
+        service.release(roomTypeId, D1, D1.plusDays(3), 2);
+
+        for (int i = 0; i < 3; i++) {
+            assertThat(repo.row(roomTypeId, D1.plusDays(i)).reserved()).isEqualTo(1);
+            assertThat(repo.row(roomTypeId, D1.plusDays(i)).total()).isEqualTo(5);
+        }
+    }
+
+    @Test
+    void releasingMoreThanIsReservedOrAMissingNightIsRefused() {
+        repo.seed(roomTypeId, D1, 5, 1);
+        repo.seed(roomTypeId, D1.plusDays(1), 5, 3);
+
+        assertThat(catchThrowable(() -> service.release(roomTypeId, D1, D1.plusDays(2), 2)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(catchThrowable(() -> service.release(roomTypeId, D1.plusDays(1), D1.plusDays(3), 1)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void releaseValidatesItsInput() {
+        assertThat(catchThrowable(() -> service.release(null, D1, D1.plusDays(1), 1)))
+                .isInstanceOf(DomainValidationException.class);
+        assertThat(catchThrowable(() -> service.release(roomTypeId, D1, D1, 1)))
+                .isInstanceOf(DomainValidationException.class);
+        assertThat(catchThrowable(() -> service.release(roomTypeId, D1, D1.plusDays(1), 0)))
+                .isInstanceOf(DomainValidationException.class);
+    }
 }

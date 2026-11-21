@@ -29,6 +29,14 @@ public interface InventoryRepositoryPort {
      */
     int reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
 
+    /**
+     * Subtracts {@code rooms} from {@code reserved} on each night of [checkIn, checkOut) that has at least that many
+     * reserved, in one statement, with the same lock order as {@link #reserve}. Never changes {@code total}.
+     *
+     * @return the number of nights updated; fewer than the nights stayed means the reservation and inventory disagree
+     */
+    int release(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
+
     /** The nights of this room type that have an inventory row in [from, toExclusive), any total. */
     Set<LocalDate> stockedNights(UUID roomTypeId, LocalDate from, LocalDate toExclusive);
 }

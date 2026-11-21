@@ -57,6 +57,15 @@ class JdbcPaymentRepository implements PaymentRepositoryPort {
     }
 
     @Override
+    public Optional<PaymentRow> findRefund(UUID reservationId) {
+        return jdbc.sql("SELECT " + COLUMNS + " FROM payment WHERE reservation_id = :reservationId"
+                        + " AND status IN ('REFUNDING', 'REFUNDED') ORDER BY created_at DESC LIMIT 1")
+                .param("reservationId", reservationId)
+                .query(JdbcPaymentRepository::map)
+                .optional();
+    }
+
+    @Override
     public boolean transition(UUID id, PaymentStatus from, PaymentStatus to, String providerRef) {
         return jdbc.sql("""
                         UPDATE payment SET status = :to, provider_ref = coalesce(:providerRef::text, provider_ref)

@@ -20,6 +20,9 @@ public interface PaymentRepositoryPort {
 
     Optional<PaymentRow> find(UUID id);
 
+    /** The reservation's most recent REFUNDING or REFUNDED payment. */
+    Optional<PaymentRow> findRefund(UUID reservationId);
+
     /** @return true when the payment moved {@code from} → {@code to} (it was in {@code from}) */
     boolean transition(UUID id, PaymentStatus from, PaymentStatus to, String providerRef);
 }
