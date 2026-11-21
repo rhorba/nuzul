@@ -69,6 +69,27 @@ public final class ReserveFixtures {
                 roomTypeId);
     }
 
+    /** A reservation row on night(0)..night(1) for {@code guestSub}, inserted directly (no inventory taken). */
+    public UUID reservation(UUID roomTypeId, String guestSub, String status, java.time.Instant holdExpiresAt) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO reservation (id, guest_sub, hotel_id, room_type_id, check_in, check_out, rooms, status,
+                                         total_mad, hold_expires_at, idempotency_key, guest_name, guest_email)
+                SELECT ?, ?, hotel_id, id, ?, ?, 1, ?, 700.00, ?, ?, 'Test Guest', 'guest@test.ma'
+                FROM room_type WHERE id = ?
+                """,
+                id,
+                guestSub,
+                night(0),
+                night(1),
+                status,
+                holdExpiresAt == null ? null : java.sql.Timestamp.from(holdExpiresAt),
+                UUID.randomUUID(),
+                roomTypeId);
+        return id;
+    }
+
     public int reserved(UUID roomTypeId, LocalDate night) {
         return jdbc.queryForObject(
                 "SELECT reserved FROM room_inventory WHERE room_type_id = ? AND night = ?",

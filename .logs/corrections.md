@@ -26,3 +26,9 @@
 
 ### [2026-11-20] [CORRECTION] — Story 2.1 duplicate-key handling
 - Plan said catch 23505 then replay outside the tx. Switched to INSERT … ON CONFLICT ON CONSTRAINT reservation_idem DO NOTHING: same wait-on-unique-index behaviour, no aborted transaction, replay read inside the same tx. Spring 7 RetryTemplate (programmatic) instead of @Retryable to make retry-outside-transaction ordering explicit.
+
+### [2026-11-21] [CORRECTION] — Story 2.2 charge/refund idempotent by state
+- Plan: charge only PENDING payments. Twin confirms sharing a payment could reach charge after the other captured → 500. Now charge answers from state (CAPTURED/REFUNDED → stored approval, FAILED → declined) and refund on REFUNDED is a no-op; provider_ref keeps the charge ref.
+
+### [2026-11-21] [CORRECTION] — Story 2.2 review HIGH: refund vs capture race
+- Found by quality-reviewer: refund read PENDING → provider refund → conditional update; a twin confirm could capture in the gap → CONFIRMED + refunded money. Fix: refund claims PENDING→REFUNDED before the provider call; capture returns boolean and tx2 rolls back (CaptureLost) when the claim won; confirm's `now` read inside tx2; charge answers from state when its guarded update loses; cancelled-during-charge → 409. Tests added (unit) + ConfirmIT asserts a single provider idempotency key.

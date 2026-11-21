@@ -51,3 +51,8 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 - Chosen: 🟡 Redis response cache (GET → replay) + Postgres serializes: reservation row inserted BEFORE reserve(), parallel duplicate waits on UNIQUE(guest_sub, idempotency_key), gets 23505, replays the stored row. Redis SET after commit (24 h); Redis down → PG path only. Drops design step "PENDING NX / 409 IN_PROGRESS" (conflicts with gate 3) → update system-design doc.
 - Key reuse with different body → 422 IDEMPOTENCY_KEY_REUSED.
 - Rejected: 🟢 PG only (no Redis CV signal yet); 🔴 NX lock + polling (flaky gate 3).
+
+### [2026-11-21] [BRAINSTORM] — Story 2.2 confirm flow
+- Chosen: 🟡 pay outside any tx + compensate. tx1: HELD & unexpired → begin payment (reuse active PENDING or insert, partial unique index one active per reservation). Charge outside tx, provider idempotency key = payment id. tx2: conditional UPDATE HELD→CONFIRMED where hold_expires_at > now; 0 rows & not CONFIRMED → refund → 410. Declined → FAILED, 402, hold stays HELD.
+- Refinement: reuse PENDING instead of 409 PAYMENT_IN_PROGRESS (double-click → one charge, both 200; timeout → resumable).
+- Rejected: 🟢 FOR UPDATE across provider call (tx open during external call); 🔴 reconciliation job (YAGNI with fake provider).

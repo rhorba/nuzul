@@ -29,6 +29,10 @@ spring:
           audiences: ${OIDC_AUDIENCE:nuzul-api}
 
 management:
+  health:
+    redis:
+      # Redis is a fail-open cache (idempotency replays): the API works without it, so it must not turn health DOWN.
+      enabled: false
   endpoints:
     web:
       exposure:

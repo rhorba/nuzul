@@ -207,3 +207,20 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-21 00:00] [SHIP] — Story 2.1 Hold + idempotency
 - Summary: feature/2.1-hold @ 3e8e573 pushed; PR #8 → main, CI green.
 - Status: complete
+
+### [2026-11-21] [PLAN] — Story 2.2 Confirm (awaiting confirmation)
+- B1 payment module: V2 migration (status CHECK + partial unique index one active payment per reservation), Payments API (begin/charge/capture/refund), JdbcPaymentRepository, PaymentPort + FakePaymentAdapter (token *0002 declines, deterministic refs), tests.
+- B2 reservation confirm: ConfirmService + ConfirmTransactions (tx1 begin, tx2 conditional confirm), POST /api/v1/reservations/{id}/confirm, 402/410 mapping, owner-scoped load (404 for others).
+- B3 ConfirmServiceTest, ConfirmIT (happy, 402→retry, 410, IDOR 404, cancelled 409, replay, 5x parallel = 1 capture, expiry-during-charge → refund+410), docs.
+
+### [2026-11-21] [EXECUTE] — Story 2.2 Batches 1-3 (payment module, confirm, tests, docs)
+- payment: V2__payment_guard.sql (status CHECK + payment_one_active partial unique index); Payments API (begin MANDATORY / charge+refund outside tx, guarded / capture MANDATORY), PaymentService (charge/refund idempotent by state), JdbcPaymentRepository, PaymentPort + FakePaymentAdapter (*0002 declines, refs from idempotency key).
+- reservation: ConfirmService (owner-scoped load, status gate, tx1 start → charge outside tx → tx2 confirmIfHeld+capture → refund+410 if expired meanwhile), ConfirmTransactions, POST /api/v1/reservations/{id}/confirm; shared GoneException 410, PaymentRequiredException 402.
+- Tests: PaymentServiceTest 8, FakePaymentAdapterTest 3, ConfirmServiceTest 10, PaymentIT 5, ConfirmIT 7 (incl. 5x parallel = 1 capture, expiry during charge → REFUNDED + 410).
+- docs: system design "Confirm and payment" + failure table; database doc V2.
+
+### [2026-11-21 15:00] [CI] — PR #9 GREEN (api verify + Sonar gate, web, images); no Sonar issues.
+
+### [2026-11-21 15:00] [SHIP] — Story 2.2 Confirm via PaymentPort
+- Summary: feature/2.2-confirm @ 62a4c75 pushed; PR #9 → main, CI green.
+- Status: complete
