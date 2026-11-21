@@ -61,6 +61,21 @@ class InMemoryInventoryRepository implements InventoryRepositoryPort {
         return updated;
     }
 
+    /** Mirrors the guarded release: each night with enough reserved is decremented; the count is returned. */
+    @Override
+    public int release(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
+        var nights = rows.getOrDefault(roomTypeId, Map.of());
+        int updated = 0;
+        for (LocalDate night : checkIn.datesUntil(checkOut).toList()) {
+            Row current = nights.get(night);
+            if (current != null && current.reserved() >= rooms) {
+                nights.put(night, new Row(current.total(), current.reserved() - rooms));
+                updated++;
+            }
+        }
+        return updated;
+    }
+
     @Override
     public Set<LocalDate> stockedNights(UUID roomTypeId, LocalDate from, LocalDate toExclusive) {
         Set<LocalDate> stocked = new HashSet<>();

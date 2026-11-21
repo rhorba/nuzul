@@ -49,14 +49,20 @@ class JdbcRateRepository implements RateRepositoryPort {
     @Override
     public PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
         return jdbc.sql("""
-                        SELECT count(*) AS nights, coalesce(sum(price_mad), 0.00) AS total
+                        SELECT count(*) AS nights, coalesce(sum(price_mad), 0.00) AS total,
+                               coalesce(bool_and(refundable), false) AS all_refundable,
+                               coalesce(max(free_cancel_hours), 0) AS max_hours
                         FROM rate
                         WHERE room_type_id = :roomTypeId AND night >= :checkIn AND night < :checkOut
                         """)
                 .param("roomTypeId", roomTypeId)
                 .param("checkIn", checkIn)
                 .param("checkOut", checkOut)
-                .query((rs, i) -> new PricedNights(rs.getInt("nights"), rs.getBigDecimal("total")))
+                .query((rs, i) -> new PricedNights(
+                        rs.getInt("nights"),
+                        rs.getBigDecimal("total"),
+                        rs.getBoolean("all_refundable"),
+                        rs.getInt("max_hours")))
                 .single();
     }
 }

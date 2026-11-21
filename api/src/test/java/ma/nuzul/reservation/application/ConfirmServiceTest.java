@@ -17,6 +17,7 @@ import java.util.UUID;
 import ma.nuzul.payment.ChargeResult;
 import ma.nuzul.payment.PaymentStatus;
 import ma.nuzul.payment.Payments;
+import ma.nuzul.reservation.domain.CancellationPolicy;
 import ma.nuzul.reservation.domain.Reservation;
 import ma.nuzul.reservation.domain.ReservationStatus;
 import ma.nuzul.shared.error.CodedException;
@@ -79,6 +80,11 @@ class ConfirmServiceTest {
             rows.put(id, withStatus(r, ReservationStatus.CONFIRMED));
             return true;
         }
+
+        @Override
+        public boolean cancelIf(UUID id, ReservationStatus from) {
+            throw new UnsupportedOperationException("not used here");
+        }
     };
 
     private final Payments payments = new Payments() {
@@ -103,6 +109,21 @@ class ConfirmServiceTest {
             captured = true;
             calls.add("capture " + providerRef);
             return true;
+        }
+
+        @Override
+        public Optional<UUID> claimRefund(UUID reservationId) {
+            throw new UnsupportedOperationException("not used by confirm");
+        }
+
+        @Override
+        public void finishRefund(UUID paymentId) {
+            throw new UnsupportedOperationException("not used by confirm");
+        }
+
+        @Override
+        public Optional<Refund> refundOf(UUID reservationId) {
+            throw new UnsupportedOperationException("not used by confirm");
         }
 
         @Override
@@ -136,7 +157,8 @@ class ConfirmServiceTest {
                 r.holdExpiresAt(),
                 r.idempotencyKey(),
                 r.guestName(),
-                r.guestEmail());
+                r.guestEmail(),
+                r.cancellationPolicy());
     }
 
     private UUID reservation(ReservationStatus status, Instant expiresAt) {
@@ -156,7 +178,8 @@ class ConfirmServiceTest {
                         expiresAt,
                         UUID.randomUUID(),
                         "Amina",
-                        "a@example.ma"));
+                        "a@example.ma",
+                        CancellationPolicy.NON_REFUNDABLE));
         return id;
     }
 

@@ -224,3 +224,28 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-21 15:00] [SHIP] — Story 2.2 Confirm via PaymentPort
 - Summary: feature/2.2-confirm @ 62a4c75 pushed; PR #9 → main, CI green.
 - Status: complete
+
+### [2026-11-21] [PLAN] — Story 2.3 Cancel (awaiting confirmation)
+- B1 policy: V3 migration + backfill; StayPricing.quote (total + refundable + strictest hours); CancellationPolicy domain; hold stores it.
+- B2 inventory: InventoryReservations.release (MANDATORY, ordered FOR NO KEY UPDATE CTE, all columns from locked values, guard).
+- B3 payments: claimRefund (CAPTURED→REFUNDING, MANDATORY), finishRefund (provider → REFUNDED), refund status queries; existing refund refactored onto them.
+- B4 cancel: CancelService + tx (conditional status → CANCELLED + release + claim in one commit; provider refund after commit), POST /{id}/cancel, idempotent replay (retries a REFUNDING refund).
+- B5 tests (CancellationPolicyTest, CancelServiceTest, InventoryReleaseIT, CancelIT incl. races) + docs.
+
+### [2026-11-21] [EXECUTE] — Story 2.3 Batches 1-4 (policy, release, refunds, cancel)
+- V3 migration (reservation.refundable, free_cancel_until + backfill); StayPricing.quote → StayQuote (total, all refundable, strictest hours); CancellationPolicy domain; hold freezes it.
+- InventoryReservations.release (MANDATORY; RELEASE SQL mirrors RESERVE: ordered FOR NO KEY UPDATE CTE, all columns from locked values, guard reserved >= rooms; partial = IllegalStateException).
+- Payments: claimRefund (CAPTURED→REFUNDING, MANDATORY), finishRefund (provider → REFUNDED), refundOf; confirm-path refund rebuilt on send().
+- CancelService + CancelTransaction (conditional HELD|CONFIRMED→CANCELLED + release + claim in one commit; provider after commit; provider error → refund PENDING, retried by next cancel); POST /api/v1/reservations/{id}/cancel; two lost races → 409 CONCURRENT_UPDATE.
+- Unit: InventoryReservationServiceTest +3, PaymentServiceTest 13, existing suites green.
+
+### [2026-11-21] [EXECUTE] — Story 2.3 Batch 5 (tests + docs)
+- CancellationPolicyTest 5, CancelServiceTest 9, InventoryReservationServiceTest +3, PaymentServiceTest +3, CancelIT 8 (frozen policy, free refund + release, non-refundable, past deadline, held cancel → confirm 409, provider error → PENDING → retry COMPLETED, 5x parallel = one release/refund, 404/410/401), InventoryReleaseIT 4 (all-or-nothing, MANDATORY, 40 concurrent reserve/release no deadlock/lost update).
+- Fix during tests: double refund send on the first cancel call removed (outcome() owns sending).
+- docs: system design "Cancel (story 2.3)" + API table; database V3.
+
+### [2026-11-21 18:30] [CI] — PR #10 GREEN (api verify + Sonar gate, web, images); no Sonar issues.
+
+### [2026-11-21 18:30] [SHIP] — Story 2.3 Cancel with free-cancellation rule
+- Summary: feature/2.3-cancel @ 6fa40d9 pushed; PR #10 → main, CI green.
+- Status: complete

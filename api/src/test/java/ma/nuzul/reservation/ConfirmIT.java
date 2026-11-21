@@ -68,8 +68,8 @@ class ConfirmIT {
                 }
 
                 @Override
-                public String refund(String chargeRef, BigDecimal amountMad) {
-                    return "fake_re_" + chargeRef;
+                public String refund(String idempotencyKey, String chargeRef, BigDecimal amountMad) {
+                    return "fake_re_" + idempotencyKey;
                 }
             };
         }

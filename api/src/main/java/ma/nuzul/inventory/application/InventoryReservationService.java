@@ -39,4 +39,19 @@ class InventoryReservationService implements InventoryReservations {
             throw new SoldOutException();
         }
     }
+
+    @Override
+    public void release(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
+        if (roomTypeId == null) {
+            throw new DomainValidationException("roomTypeId is required");
+        }
+        StayRange stay = new StayRange(checkIn, checkOut);
+        RoomCount.requireValid(rooms);
+
+        int updated = inventory.release(roomTypeId, stay.checkIn(), stay.checkOut(), rooms);
+        if (updated != stay.nights()) {
+            throw new IllegalStateException("release of " + rooms + " room(s) of " + roomTypeId + " over " + stay
+                    + " matched " + updated + " of " + stay.nights() + " nights: inventory and reservation disagree");
+        }
+    }
 }

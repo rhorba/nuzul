@@ -56,3 +56,7 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 - Chosen: 🟡 pay outside any tx + compensate. tx1: HELD & unexpired → begin payment (reuse active PENDING or insert, partial unique index one active per reservation). Charge outside tx, provider idempotency key = payment id. tx2: conditional UPDATE HELD→CONFIRMED where hold_expires_at > now; 0 rows & not CONFIRMED → refund → 410. Declined → FAILED, 402, hold stays HELD.
 - Refinement: reuse PENDING instead of 409 PAYMENT_IN_PROGRESS (double-click → one charge, both 200; timeout → resumable).
 - Rejected: 🟢 FOR UPDATE across provider call (tx open during external call); 🔴 reconciliation job (YAGNI with fake provider).
+
+### [2026-11-21] [BRAINSTORM] — Story 2.3 cancel
+- Policy frozen at hold (V3: reservation.refundable NOT NULL DEFAULT false, free_cancel_until TIMESTAMPTZ NULL; backfill from rates). refundable = every night refundable; deadline = check-in day 00:00 in app zone − strictest free_cancel_hours.
+- Cancellable: HELD (early release, no money) and CONFIRMED (refund when free). Rejected: live rates at cancel (admin edits change guest terms); CONFIRMED only.

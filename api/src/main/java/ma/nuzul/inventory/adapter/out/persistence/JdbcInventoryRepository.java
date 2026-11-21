@@ -80,6 +80,26 @@ class JdbcInventoryRepository implements InventoryRepositoryPort {
                AND l.reserved + :rooms <= l.total
             """;
 
+    /*
+     * The inverse of RESERVE, built the same way for the same reasons (see above): the CTE locks the stay's rows in
+     * ascending night order, the guard and every non-key column come from the locked values (total written back
+     * unchanged), and r only locates the row. Ascending order makes release, reserve and the bulk upsert wait for each
+     * other instead of deadlocking (database doc section 3, rule 5).
+     */
+    static final String RELEASE = """
+            WITH locked AS (
+              SELECT night, reserved, total FROM room_inventory
+              WHERE room_type_id = :roomTypeId AND night >= :checkIn AND night < :checkOut
+              ORDER BY night
+              FOR NO KEY UPDATE)
+            UPDATE room_inventory r
+               SET reserved = l.reserved - :rooms, total = l.total
+              FROM locked l
+             WHERE r.room_type_id = :roomTypeId AND r.night >= :checkIn AND r.night < :checkOut
+               AND r.night = l.night
+               AND l.reserved >= :rooms
+            """;
+
     private final JdbcClient jdbc;
 
     JdbcInventoryRepository(JdbcClient jdbc) {
@@ -101,6 +121,16 @@ class JdbcInventoryRepository implements InventoryRepositoryPort {
     @Override
     public int reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
         return jdbc.sql(RESERVE)
+                .param("roomTypeId", roomTypeId)
+                .param("checkIn", checkIn)
+                .param("checkOut", checkOut)
+                .param("rooms", rooms)
+                .update();
+    }
+
+    @Override
+    public int release(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms) {
+        return jdbc.sql(RELEASE)
                 .param("roomTypeId", roomTypeId)
                 .param("checkIn", checkIn)
                 .param("checkOut", checkOut)

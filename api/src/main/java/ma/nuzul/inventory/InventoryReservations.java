@@ -33,4 +33,17 @@ public interface InventoryReservations {
      * @throws ma.nuzul.shared.error.DomainValidationException VALIDATION_FAILED for an invalid stay or room count
      */
     void reserve(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
+
+    /**
+     * Gives back {@code rooms} on every night of [checkIn, checkOut): the exact inverse of {@link #reserve}, used when a
+     * hold is cancelled or expires. Same guarded, ordered statement (rows locked in ascending night order, every
+     * non-key column written from the locked values), all or nothing. Never changes {@code total}.
+     *
+     * <p>Must join the caller's transaction (propagation MANDATORY), the one that changes the reservation's status, so
+     * the rooms come back exactly once.
+     *
+     * @throws IllegalStateException when a night is missing or has fewer than {@code rooms} reserved: the reservation
+     *     and the inventory disagree, so the caller's transaction must roll back (this method marks it rollback-only)
+     */
+    void release(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut, int rooms);
 }

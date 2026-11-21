@@ -33,7 +33,7 @@ class PaymentServiceTest {
         }
 
         @Override
-        public String refund(String chargeRef, BigDecimal amountMad) {
+        public String refund(String idempotencyKey, String chargeRef, BigDecimal amountMad) {
             providerCalls.add("refund " + chargeRef + " " + amountMad);
             if (failRefund) {
                 throw new IllegalStateException("provider timeout");
@@ -162,6 +162,51 @@ class PaymentServiceTest {
     }
 
     @Test
+    void aCapturedPaymentIsClaimedThenRefundedAfterwards() {
+        Payments.Active p = service.begin(reservationId, AMOUNT);
+        service.charge(p.paymentId(), "tok");
+        service.capture(p.paymentId(), "ch_1");
+        providerCalls.clear();
+
+        assertThat(service.claimRefund(reservationId)).contains(p.paymentId());
+        assertThat(service.refundOf(reservationId)).contains(new Payments.Refund(p.paymentId(), AMOUNT, false));
+        assertThat(service.claimRefund(reservationId)).as("claimed once").isEmpty();
+
+        service.finishRefund(p.paymentId());
+        service.finishRefund(p.paymentId());
+
+        assertThat(service.refundOf(reservationId)).contains(new Payments.Refund(p.paymentId(), AMOUNT, true));
+        assertThat(providerCalls).containsExactly("refund ch_1 2100.00");
+    }
+
+    @Test
+    void nothingToClaimWithoutACapturedPayment() {
+        assertThat(service.claimRefund(reservationId)).isEmpty();
+        Payments.Active p = service.begin(reservationId, AMOUNT);
+        assertThat(service.claimRefund(reservationId))
+                .as("PENDING is not paid yet")
+                .isEmpty();
+        assertThat(service.refundOf(reservationId)).isEmpty();
+        assertThatThrownBy(() -> service.finishRefund(p.paymentId())).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void aFailedProviderRefundStaysClaimedAndIsRetried() {
+        Payments.Active p = service.begin(reservationId, AMOUNT);
+        service.charge(p.paymentId(), "tok");
+        service.capture(p.paymentId(), "ch_1");
+        service.claimRefund(reservationId);
+        failRefund = true;
+
+        assertThatThrownBy(() -> service.finishRefund(p.paymentId())).isInstanceOf(IllegalStateException.class);
+        assertThat(service.refundOf(reservationId).orElseThrow().done()).isFalse();
+
+        failRefund = false;
+        service.finishRefund(p.paymentId());
+        assertThat(service.refundOf(reservationId).orElseThrow().done()).isTrue();
+    }
+
+    @Test
     void anUnknownPaymentCannotBeCharged() {
         assertThatThrownBy(() -> service.charge(UUID.randomUUID(), "tok")).isInstanceOf(IllegalStateException.class);
         assertThat(providerCalls).isEmpty();
@@ -201,6 +246,14 @@ class PaymentServiceTest {
         @Override
         public Optional<PaymentRow> find(UUID id) {
             return Optional.ofNullable(byId.get(id));
+        }
+
+        @Override
+        public Optional<PaymentRow> findRefund(UUID reservationId) {
+            return byId.values().stream()
+                    .filter(p -> p.reservationId().equals(reservationId))
+                    .filter(p -> p.status() == PaymentStatus.REFUNDING || p.status() == PaymentStatus.REFUNDED)
+                    .findFirst();
         }
 
         @Override

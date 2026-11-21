@@ -48,6 +48,9 @@ CREATE TABLE payment (id UUID PRIMARY KEY, reservation_id UUID NOT NULL REFERENC
 -- V2 (story 2.2): closed status set + at most one active payment per reservation (the double-charge guard).
 ALTER TABLE payment ADD CONSTRAINT payment_status CHECK (status IN ('PENDING','CAPTURED','FAILED','REFUNDING','REFUNDED'));
 CREATE UNIQUE INDEX payment_one_active ON payment (reservation_id) WHERE status IN ('PENDING','CAPTURED');
+-- V3 (story 2.3): the cancellation policy, frozen at hold time like total_mad (backfilled from rates).
+ALTER TABLE reservation ADD COLUMN refundable BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN free_cancel_until TIMESTAMPTZ;  -- NULL = never free
 
 CREATE TABLE outbox_event (id UUID PRIMARY KEY, aggregate TEXT NOT NULL, type TEXT NOT NULL,
   payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), published_at TIMESTAMPTZ);

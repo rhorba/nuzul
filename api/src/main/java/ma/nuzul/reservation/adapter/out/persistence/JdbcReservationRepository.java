@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import ma.nuzul.reservation.application.ReservationRepositoryPort;
+import ma.nuzul.reservation.domain.CancellationPolicy;
 import ma.nuzul.reservation.domain.Reservation;
 import ma.nuzul.reservation.domain.ReservationStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -24,15 +25,17 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
      */
     static final String INSERT = """
             INSERT INTO reservation (id, guest_sub, hotel_id, room_type_id, check_in, check_out, rooms, status,
-                                     total_mad, hold_expires_at, idempotency_key, guest_name, guest_email)
+                                     total_mad, hold_expires_at, idempotency_key, guest_name, guest_email,
+                                     refundable, free_cancel_until)
             VALUES (:id, :guestSub, :hotelId, :roomTypeId, :checkIn, :checkOut, :rooms, :status,
-                    :totalMad::numeric, :holdExpiresAt, :idempotencyKey, :guestName, :guestEmail)
+                    :totalMad::numeric, :holdExpiresAt, :idempotencyKey, :guestName, :guestEmail,
+                    :refundable, :freeCancelUntil)
             ON CONFLICT ON CONSTRAINT reservation_idem DO NOTHING
             """;
 
     static final String SELECT_COLUMNS = """
             SELECT id, guest_sub, hotel_id, room_type_id, check_in, check_out, rooms, status, total_mad,
-                   hold_expires_at, idempotency_key, guest_name, guest_email
+                   hold_expires_at, idempotency_key, guest_name, guest_email, refundable, free_cancel_until
             FROM reservation""";
 
     static final String FIND_BY_KEY =
@@ -60,6 +63,8 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
                 .param("idempotencyKey", r.idempotencyKey())
                 .param("guestName", r.guestName())
                 .param("guestEmail", r.guestEmail())
+                .param("refundable", r.cancellationPolicy().refundable())
+                .param("freeCancelUntil", timestamp(r.cancellationPolicy().freeUntil()))
                 .update();
         return inserted == 1;
     }
@@ -98,10 +103,26 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
                         """).param("id", id).param("now", Timestamp.from(now)).update() == 1;
     }
 
+    @Override
+    public boolean cancelIf(UUID id, ReservationStatus from) {
+        return jdbc.sql("""
+                        UPDATE reservation SET status = 'CANCELLED', version = version + 1
+                        WHERE id = :id AND status = :from
+                        """).param("id", id).param("from", from.name()).update() == 1;
+    }
+
     /** Nullable column: only a HELD reservation needs one (later stories must not clear it on a held row). */
-    private static java.time.Instant holdExpiresAt(ResultSet rs) throws SQLException {
-        Timestamp t = rs.getTimestamp("hold_expires_at");
+    private static Instant holdExpiresAt(ResultSet rs) throws SQLException {
+        return instant(rs, "hold_expires_at");
+    }
+
+    private static Instant instant(ResultSet rs, String column) throws SQLException {
+        Timestamp t = rs.getTimestamp(column);
         return t == null ? null : t.toInstant();
+    }
+
+    private static Timestamp timestamp(Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
     }
 
     private static Reservation map(ResultSet rs, int row) throws SQLException {
@@ -118,6 +139,7 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
                 holdExpiresAt(rs),
                 rs.getObject("idempotency_key", UUID.class),
                 rs.getString("guest_name"),
-                rs.getString("guest_email"));
+                rs.getString("guest_email"),
+                new CancellationPolicy(rs.getBoolean("refundable"), instant(rs, "free_cancel_until")));
     }
 }

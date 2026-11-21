@@ -1,6 +1,7 @@
 package ma.nuzul.payment;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -10,6 +11,9 @@ import java.util.UUID;
  * outside one.
  */
 public interface Payments {
+
+    /** A refund of the reservation's payment: claimed (REFUNDING, provider not yet confirmed) or done (REFUNDED). */
+    record Refund(UUID paymentId, BigDecimal amountMad, boolean done) {}
 
     /** The reservation's active payment: the one just started, or the one an earlier attempt left. */
     record Active(UUID paymentId, PaymentStatus status, BigDecimal amountMad) {}
@@ -46,4 +50,22 @@ public interface Payments {
      *     nothing was refunded and the reservation is CONFIRMED
      */
     boolean refund(UUID paymentId, String providerRef);
+
+    /**
+     * Claims the reservation's CAPTURED payment for a refund (CAPTURED -> REFUNDING), inside the caller's transaction
+     * (propagation MANDATORY) so the claim commits with the cancellation. The money goes back afterwards, outside the
+     * transaction, through {@link #finishRefund}.
+     *
+     * @return the claimed payment, or empty when the reservation has no captured payment
+     */
+    Optional<UUID> claimRefund(UUID reservationId);
+
+    /**
+     * Sends a claimed (REFUNDING) refund to the provider and marks it REFUNDED; a REFUNDED payment is left as it is.
+     * Must not run inside a transaction. A provider error propagates and leaves REFUNDING, retried by the next call.
+     */
+    void finishRefund(UUID paymentId);
+
+    /** The reservation's refund, claimed or done, if any. */
+    Optional<Refund> refundOf(UUID reservationId);
 }
