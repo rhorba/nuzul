@@ -76,3 +76,9 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **Open for owner:** merge PR #9.
 **Next:** story 2.3 Cancel with free-cancellation rule (rate.refundable + free_cancel_hours; refund flag; release inventory in same tx as status change, all columns from locked values per 2.4 carry).
 **Carry:** 2.4 expiry job must use conditional HELD→EXPIRED (same semantics as confirmIfHeld), FOR UPDATE SKIP LOCKED, release inventory in same tx; never clear hold_expires_at. Reconciliation job for PENDING/REFUNDING payments (with Stripe adapter). Low: twin losing capture to refund claim answers 410; Sonar S8786 regex HoldIT:88; hanging-Redis test. 2.5 rate limits. 3.1 outbox rows (hold + ReservationConfirmed). 6.1 seeder single-replica guard.
+
+### [2026-11-21] SESSION_END (7)
+**Done:** Story 2.3 — POST /api/v1/reservations/{id}/cancel (HELD + CONFIRMED). V3 freezes the cancellation policy at hold (StayPricing.quote → CancellationPolicy). One tx: conditional → CANCELLED + InventoryReservations.release (inverse of reserve) + refund claim CAPTURED→REFUNDING when free; provider refund after commit (PENDING on error, resent on retry). PaymentPort.refund requires an idempotency key (review HIGH fixed, re-review PASS). 220 unit + 205 IT, line 99.2%. PR #10 CI green.
+**Open for owner:** merge PR #10.
+**Next:** story 2.4 expiry job (ShedLock, SKIP LOCKED) + HoldExpiryIT (gate 4: expired hold releases inventory exactly once with two schedulers racing). Reuse release() + a conditional HELD→EXPIRED; ONE reservation per tx (lock reservation row → its inventory), never batch-lock several reservation rows (deadlock with cancel); keep hold_expires_at.
+**Carry:** Stripe adapter: refund key as Idempotency-Key header; reconciliation job for PENDING/REFUNDING. 2.5 rate limits. 3.1 outbox rows. Low: twin losing capture → 410; HoldIT:88 regex; hanging-Redis test; CancelIT static REFUND_KEYS. 6.1 seeder single-replica guard.

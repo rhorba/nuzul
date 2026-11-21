@@ -243,3 +243,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - CancellationPolicyTest 5, CancelServiceTest 9, InventoryReservationServiceTest +3, PaymentServiceTest +3, CancelIT 8 (frozen policy, free refund + release, non-refundable, past deadline, held cancel → confirm 409, provider error → PENDING → retry COMPLETED, 5x parallel = one release/refund, 404/410/401), InventoryReleaseIT 4 (all-or-nothing, MANDATORY, 40 concurrent reserve/release no deadlock/lost update).
 - Fix during tests: double refund send on the first cancel call removed (outcome() owns sending).
 - docs: system design "Cancel (story 2.3)" + API table; database V3.
+
+### [2026-11-21 18:30] [CI] — PR #10 GREEN (api verify + Sonar gate, web, images); no Sonar issues.
+
+### [2026-11-21 18:30] [SHIP] — Story 2.3 Cancel with free-cancellation rule
+- Summary: feature/2.3-cancel @ 6fa40d9 pushed; PR #10 → main, CI green.
+- Status: complete
