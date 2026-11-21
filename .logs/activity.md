@@ -218,3 +218,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - reservation: ConfirmService (owner-scoped load, status gate, tx1 start → charge outside tx → tx2 confirmIfHeld+capture → refund+410 if expired meanwhile), ConfirmTransactions, POST /api/v1/reservations/{id}/confirm; shared GoneException 410, PaymentRequiredException 402.
 - Tests: PaymentServiceTest 8, FakePaymentAdapterTest 3, ConfirmServiceTest 10, PaymentIT 5, ConfirmIT 7 (incl. 5x parallel = 1 capture, expiry during charge → REFUNDED + 410).
 - docs: system design "Confirm and payment" + failure table; database doc V2.
+
+### [2026-11-21 15:00] [CI] — PR #9 GREEN (api verify + Sonar gate, web, images); no Sonar issues.
+
+### [2026-11-21 15:00] [SHIP] — Story 2.2 Confirm via PaymentPort
+- Summary: feature/2.2-confirm @ 62a4c75 pushed; PR #9 → main, CI green.
+- Status: complete

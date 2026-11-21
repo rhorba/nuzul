@@ -70,3 +70,9 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **Open for owner:** merge PR #8.
 **Next:** story 2.2 Confirm via PaymentPort / FakePaymentAdapter (card ending 0002 fails), payment OUTSIDE the hold tx; 410 HOLD_EXPIRED, 402 PAYMENT_FAILED.
 **Carry:** 2.2/2.4 must never clear hold_expires_at on a row whose replay may be served from PG (or update replay mapping). 2.4 release takes all columns from locked values. 2.5 rate limits + active-hold cap. 3.1 outbox row in the hold tx. Low: Sonar S8786 regex in HoldIT:88; add hanging-Redis timeout test. 6.1 seeder single-replica guard.
+
+### [2026-11-21] SESSION_END (6)
+**Done:** Story 2.2 — POST /api/v1/reservations/{id}/confirm: tx1 begin payment (V2 payment_one_active) → charge outside any tx (idempotency key = payment id) → tx2 conditional HELD→CONFIRMED + capture; refund claims PENDING→REFUNDING before the provider, REFUNDED after (never refunds a captured payment). 402/410/404/409. New payment module + FakePaymentAdapter (*0002). Review HIGH (refund vs capture race) fixed + re-reviewed PASS. Redis health contributor disabled. 199 unit + 192 IT, line 99.3%. PR #9 CI green.
+**Open for owner:** merge PR #9.
+**Next:** story 2.3 Cancel with free-cancellation rule (rate.refundable + free_cancel_hours; refund flag; release inventory in same tx as status change, all columns from locked values per 2.4 carry).
+**Carry:** 2.4 expiry job must use conditional HELD→EXPIRED (same semantics as confirmIfHeld), FOR UPDATE SKIP LOCKED, release inventory in same tx; never clear hold_expires_at. Reconciliation job for PENDING/REFUNDING payments (with Stripe adapter). Low: twin losing capture to refund claim answers 410; Sonar S8786 regex HoldIT:88; hanging-Redis test. 2.5 rate limits. 3.1 outbox rows (hold + ReservationConfirmed). 6.1 seeder single-replica guard.
