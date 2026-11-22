@@ -85,6 +85,21 @@ class ConfirmServiceTest {
         public boolean cancelIf(UUID id, ReservationStatus from) {
             throw new UnsupportedOperationException("not used here");
         }
+
+        @Override
+        public java.util.List<UUID> expiredHoldIds(java.time.Instant now, int limit) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
+        @Override
+        public java.util.Optional<Reservation> lockExpiredHold(UUID id, java.time.Instant now) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
+        @Override
+        public boolean expireIfHeld(UUID id) {
+            throw new UnsupportedOperationException("not used here");
+        }
     };
 
     private final Payments payments = new Payments() {

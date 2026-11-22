@@ -51,6 +51,9 @@ CREATE UNIQUE INDEX payment_one_active ON payment (reservation_id) WHERE status 
 -- V3 (story 2.3): the cancellation policy, frozen at hold time like total_mad (backfilled from rates).
 ALTER TABLE reservation ADD COLUMN refundable BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN free_cancel_until TIMESTAMPTZ;  -- NULL = never free
+-- V4 (story 2.4): ShedLock's lock table (one replica runs hold expiry; times from the DB clock).
+CREATE TABLE shedlock (name VARCHAR(64) PRIMARY KEY, lock_until TIMESTAMPTZ NOT NULL,
+  locked_at TIMESTAMPTZ NOT NULL, locked_by VARCHAR(255) NOT NULL);
 
 CREATE TABLE outbox_event (id UUID PRIMARY KEY, aggregate TEXT NOT NULL, type TEXT NOT NULL,
   payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), published_at TIMESTAMPTZ);

@@ -98,3 +98,9 @@
 - Security: pass — quality-reviewer initial FAIL (HIGH duplicate provider refund calls) fixed via required refund idempotency key in the PaymentPort contract; re-review PASS. IDOR blocked (guest-scoped load), lock order reservation → inventory (ascending) → payment verified deadlock-free.
 - Open low: CancelIT static REFUND_KEYS assumes sequential test methods (default). Carry: Stripe adapter must send the refund key as Idempotency-Key; 2.4 expiry one reservation per tx.
 - Status: pass
+
+### [2026-11-22 12:00] [VERIFY] — Story 2.4 Hold expiry (ShedLock + SKIP LOCKED)
+- Tests: 227 unit + 211 IT passed / 0 failed (./mvnw verify; `clean` skipped: OneDrive lock on target/). HoldExpiryIT 5/5 (release gate 4), HoldExpirySchedulingIT 1/1, ExpireHoldsServiceTest 7/7; HexagonalArchitectureTest + ModularityTest green with the new adapter.in.scheduling package.
+- Security: pass — inline review: all SQL parameterized; no new endpoint/auth surface; logs carry reservation ids only; run bounded by batch-size; lock order reservation → inventory as in cancel (20 cancels vs 2 runs, no deadlock).
+- Open low: SKIP LOCKED means a hold whose row is locked by a long-running writer is retried next run (by design). ITs disable the job via src/test/resources/application.properties.
+- Status: pass
