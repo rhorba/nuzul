@@ -46,6 +46,12 @@ app:
   hold-minutes: ${APP_HOLD_MINUTES:10}
   cors-origin: ${APP_CORS_ORIGIN:http://localhost:4200}
   time-zone: ${APP_TIME_ZONE:Africa/Casablanca}
+  expiry:
+    # Story 2.4: HELD reservations past hold_expires_at become EXPIRED and give their rooms back. One replica at a
+    # time (ShedLock); each run expires at most batch-size holds, one short transaction each.
+    enabled: ${APP_EXPIRY_ENABLED:true}
+    interval: ${APP_EXPIRY_INTERVAL:PT30S}
+    batch-size: ${APP_EXPIRY_BATCH_SIZE:500}
   seed:
     # Demo data (story 1.5). Off by default; the owner is the realm-pinned admin@nuzul.local user id.
     enabled: ${APP_SEED_ENABLED:false}

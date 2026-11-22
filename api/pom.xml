@@ -20,6 +20,7 @@
 		<jacoco.version>0.8.16</jacoco.version>
 		<spotless.version>3.11.0</spotless.version>
 		<jib.version>3.5.2</jib.version>
+		<shedlock.version>7.10.1</shedlock.version>
 		<sonar.organization>rhorba</sonar.organization>
 		<sonar.projectKey>rhorba_nuzul</sonar.projectKey>
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -70,6 +71,17 @@
 		<dependency>
 			<groupId>org.springframework.modulith</groupId>
 			<artifactId>spring-modulith-starter-core</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>net.javacrumbs.shedlock</groupId>
+			<artifactId>shedlock-spring</artifactId>
+			<version>${shedlock.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>net.javacrumbs.shedlock</groupId>
+			<artifactId>shedlock-provider-jdbc-template</artifactId>
+			<version>${shedlock.version}</version>
 		</dependency>
 
 		<dependency>

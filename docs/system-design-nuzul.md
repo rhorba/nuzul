@@ -89,6 +89,19 @@ UPDATE room_inventory r
 ### Holds and expiry
 A `HELD` reservation has already incremented `reserved`. A scheduled job (ShedLock, every 30 s) finds `HELD` rows past `hold_expires_at`, sets them to `EXPIRED` and decrements inventory in the same transaction. **Redis TTLs are never the source of truth** for releasing inventory.
 
+**As built (story 2.4):** `HoldExpiryJob` (`@Scheduled` fixed delay `app.expiry.interval`, `@SchedulerLock("hold-expiry")`,
+ShedLock JDBC on the `shedlock` table with the **database clock**) calls `ExpireHoldsUseCase`:
+1. One indexed read (`reservation_expiry`): ids of `HELD` rows with `hold_expires_at <= now`, oldest first, at most
+   `app.expiry.batch-size` (500). The cap bounds one run, not a transaction; a backlog drains over the next runs.
+2. **One short transaction per reservation**: `SELECT … FOR UPDATE SKIP LOCKED` (re-checking `HELD` and due), the
+   conditional `HELD → EXPIRED`, then `InventoryReservations.release`. A row a confirm or cancel holds is skipped, not
+   waited on; that writer decides and the next run looks again. Reservation row first, inventory rows second, as in
+   cancel, so they cannot deadlock. One failing reservation is logged and skipped.
+
+ShedLock only saves duplicate work: two runs overlapping (lock lapsed, two replicas) still expire and release each hold
+once (release gate 4, `HoldExpiryIT`). A hold ending exactly at `now` is over (`hold_expires_at > now` is confirm's
+window), and `hold_expires_at` is kept on the expired row. `app.expiry.enabled=false` turns the job off.
+
 ### Idempotency
 `POST /reservations` requires an `Idempotency-Key` header (a UUID). Keys are scoped per guest.
 1. Redis `GET idem:{guest}:{key}`. A hit replays the stored response (201, identical body).
@@ -208,7 +221,7 @@ Errors use RFC 9457 `application/problem+json` with a stable `code`.
 | Hot inventory rows (a popular riad on New Year's Eve) | A short transaction (one UPDATE plus inserts), no external calls inside it, and payment happens **outside** the hold transaction. Measured with a 200-thread concurrency test and a k6 spike test. |
 | Search traffic | ES with 1 replica, a Redis cache on hotel pages, and an availability check limited to the current result page |
 | Inventory table growth | Monthly partitions on `night`; past partitions archived |
-| Expiry job on several pods | ShedLock, so only one pod runs it; `FOR UPDATE SKIP LOCKED` in batches of 500 |
+| Expiry job on several pods | ShedLock, so only one pod runs it; up to 500 holds per run, one `FOR UPDATE SKIP LOCKED` transaction each |
 
 ### Single points of failure
 | Component down | Behaviour |

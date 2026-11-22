@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import ma.nuzul.reservation.application.ReservationRepositoryPort;
@@ -109,6 +110,38 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
                         UPDATE reservation SET status = 'CANCELLED', version = version + 1
                         WHERE id = :id AND status = :from
                         """).param("id", id).param("from", from.name()).update() == 1;
+    }
+
+    @Override
+    public List<UUID> expiredHoldIds(Instant now, int limit) {
+        return jdbc.sql("""
+                        SELECT id FROM reservation
+                        WHERE status = 'HELD' AND hold_expires_at <= :now
+                        ORDER BY hold_expires_at
+                        LIMIT :limit
+                        """)
+                .param("now", Timestamp.from(now))
+                .param("limit", limit)
+                .query(UUID.class)
+                .list();
+    }
+
+    @Override
+    public Optional<Reservation> lockExpiredHold(UUID id, Instant now) {
+        return jdbc.sql(SELECT_COLUMNS
+                        + " WHERE id = :id AND status = 'HELD' AND hold_expires_at <= :now FOR UPDATE SKIP LOCKED")
+                .param("id", id)
+                .param("now", Timestamp.from(now))
+                .query(JdbcReservationRepository::map)
+                .optional();
+    }
+
+    @Override
+    public boolean expireIfHeld(UUID id) {
+        return jdbc.sql("""
+                        UPDATE reservation SET status = 'EXPIRED', version = version + 1
+                        WHERE id = :id AND status = 'HELD'
+                        """).param("id", id).update() == 1;
     }
 
     /** Nullable column: only a HELD reservation needs one (later stories must not clear it on a held row). */

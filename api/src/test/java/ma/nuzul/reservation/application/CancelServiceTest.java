@@ -89,6 +89,21 @@ class CancelServiceTest {
             rows.put(id, withStatus(r, ReservationStatus.CANCELLED));
             return true;
         }
+
+        @Override
+        public java.util.List<UUID> expiredHoldIds(java.time.Instant now, int limit) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
+        @Override
+        public java.util.Optional<Reservation> lockExpiredHold(UUID id, java.time.Instant now) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
+        @Override
+        public boolean expireIfHeld(UUID id) {
+            throw new UnsupportedOperationException("not used here");
+        }
     };
 
     private final InventoryReservations inventory = new InventoryReservations() {

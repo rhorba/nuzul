@@ -254,3 +254,12 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - B1 ShedLock deps + V4__shedlock.sql + SchedulingConfig (@EnableScheduling, @EnableSchedulerLock, JdbcTemplateLockProvider usingDbTime); app.expiry.* props (interval 30s, batch 500, enabled).
 - B2 ExpireHoldsUseCase: repo expiredHoldIds(now, limit) (index reservation_expiry), ExpiryTransaction.expire(id) (FOR UPDATE SKIP LOCKED + conditional + release), HoldExpiryJob (@Scheduled + @SchedulerLock).
 - B3 tests: ExpireHoldsServiceTest, HoldExpiryIT (gate 4: two schedulers racing, 50 holds → each released once; expiry vs confirm race; vs cancel; not-yet-expired untouched; hold_expires_at kept), ShedLock wiring IT; docs.
+
+### [2026-11-22] [PLAN] — Story 2.4 Expiry: confirmed by user ("go")
+- Proceeding to EXECUTE Batch 1. Handoff Tech Lead → Backend Dev: plan above; one reservation per tx, SKIP LOCKED, ShedLock JDBC with DB time; job disabled in tests by default (src/test/resources), HoldExpiryIT drives the use case directly.
+
+### [2026-11-22] [EXECUTE] — Story 2.4 Batches 1-3 (ShedLock, expiry, tests, docs)
+- B1: shedlock-spring + provider-jdbc-template 7.10.1; V4__shedlock.sql (TIMESTAMPTZ); shared/scheduling/SchedulingConfig (@EnableScheduling, @EnableSchedulerLock PT5M, JdbcTemplateLockProvider usingDbTime); app.expiry.{enabled,interval PT30S,batch-size 500} + .env.example; src/test/resources/application.properties turns the job off in ITs.
+- B2: port expiredHoldIds/lockExpiredHold (FOR UPDATE SKIP LOCKED)/expireIfHeld; ExpiryTransaction (lock → conditional HELD→EXPIRED → release, one tx per reservation); ExpireHoldsService (batch cap, per-hold failure isolation); HoldExpiryJob (adapter.in.scheduling, @Scheduled fixed delay + @SchedulerLock "hold-expiry").
+- B3: ExpireHoldsServiceTest 7; HoldExpiryIT 5 (gate 4: 4 racing runs over 50 holds → released once; running hold untouched; confirm holding the row → skipped without waiting, stays CONFIRMED; 20 cancels racing 2 runs → each released once, no deadlock; expired hold can't be confirmed/cancelled); HoldExpirySchedulingIT 1 (job expires a due hold, shedlock row written). Docs: system design "As built (story 2.4)", database V4.
+- Issue: Docker Desktop was not running (Testcontainers failure); started it, ITs green.
