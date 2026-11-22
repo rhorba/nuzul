@@ -263,3 +263,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - B2: port expiredHoldIds/lockExpiredHold (FOR UPDATE SKIP LOCKED)/expireIfHeld; ExpiryTransaction (lock → conditional HELD→EXPIRED → release, one tx per reservation); ExpireHoldsService (batch cap, per-hold failure isolation); HoldExpiryJob (adapter.in.scheduling, @Scheduled fixed delay + @SchedulerLock "hold-expiry").
 - B3: ExpireHoldsServiceTest 7; HoldExpiryIT 5 (gate 4: 4 racing runs over 50 holds → released once; running hold untouched; confirm holding the row → skipped without waiting, stays CONFIRMED; 20 cancels racing 2 runs → each released once, no deadlock; expired hold can't be confirmed/cancelled); HoldExpirySchedulingIT 1 (job expires a due hold, shedlock row written). Docs: system design "As built (story 2.4)", database V4.
 - Issue: Docker Desktop was not running (Testcontainers failure); started it, ITs green.
+
+### [2026-11-22 12:45] [CI] — PR #11 GREEN (api verify + Sonar gate 3m29s, web 25s, images + Trivy 3m53s), run 45004601050.
+
+### [2026-11-22 12:45] [SHIP] — Story 2.4 Hold expiry (ShedLock + SKIP LOCKED)
+- Summary: feature/2.4-expiry pushed; PR #11 → main, CI green. Release gate 4 (HoldExpiryIT) in place.
+- Status: complete

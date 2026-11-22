@@ -88,3 +88,9 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **State:** branch feature/2.4-expiry (from main @ abbd6ad), local only; only .logs changed.
 **Next:** confirm the 2.4 plan, then Batch 1 (ShedLock deps + V4__shedlock.sql + SchedulingConfig + app.expiry.* props) → Batch 2 (expiredHoldIds, ExpiryTransaction with FOR UPDATE SKIP LOCKED + conditional HELD→EXPIRED + release, HoldExpiryJob) → Batch 3 (HoldExpiryIT gate 4, races vs confirm/cancel, ShedLock wiring, docs).
 **Carry:** one reservation per tx; keep hold_expires_at; Stripe refund Idempotency-Key; reconciliation job (PENDING/REFUNDING); 2.5 rate limits; 3.1 outbox; lows (twin 410, HoldIT:88 regex, hanging-Redis test, CancelIT static REFUND_KEYS); 6.1 seeder single-replica guard.
+
+### [2026-11-22] SESSION_END (9)
+**Done:** Story 2.4 executed + shipped: ShedLock (JDBC, DB time, V4), ExpireHoldsUseCase (one tx per hold, FOR UPDATE SKIP LOCKED, conditional HELD→EXPIRED + release), HoldExpiryJob; HoldExpiryIT (gate 4) + HoldExpirySchedulingIT + ExpireHoldsServiceTest. 227 unit + 211 IT, coverage 99.4%/92.1%. PR #11 open, CI green.
+**State:** branch feature/2.4-expiry pushed; awaiting merge of PR #11.
+**Next:** merge PR #11, then story 2.5 (rate limits) or 3.1 (outbox).
+**Carry:** Stripe refund Idempotency-Key; reconciliation job (PENDING/REFUNDING, charges whose hold expired); 3.1 outbox; lows (twin 410, HoldIT:88 regex, hanging-Redis test, CancelIT static REFUND_KEYS); 6.1 seeder single-replica guard; local `mvn clean` blocked by OneDrive lock on target/ (consider moving repo out of OneDrive); Docker Desktop must be running for ITs.
