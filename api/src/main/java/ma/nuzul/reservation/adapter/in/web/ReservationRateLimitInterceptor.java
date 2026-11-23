@@ -34,16 +34,22 @@ class ReservationRateLimitInterceptor implements HandlerInterceptor {
         this.limiter = limiter;
     }
 
+    /** Never vetoes by returning false: a rejection is thrown so ApiExceptionHandler renders the 429 problem. */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        enforceLimit(request);
+        return true;
+    }
+
+    private void enforceLimit(HttpServletRequest request) {
         if (!HttpMethod.POST.matches(request.getMethod())) {
-            return true;
+            return;
         }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         // The filter chain only lets authenticated GUEST tokens through to these paths; without a JWT there is no
         // subject to key on, and refusing is the filter chain's job, not the limiter's.
         if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
-            return true;
+            return;
         }
         var decision = limiter.tryConsume(RateLimiter.RESERVATION_POST, jwt.getSubject());
         if (!decision.allowed()) {
@@ -52,6 +58,5 @@ class ReservationRateLimitInterceptor implements HandlerInterceptor {
                     "Too many reservation requests. Try again in " + decision.retryAfterSeconds() + " seconds.",
                     decision.retryAfterSeconds());
         }
-        return true;
     }
 }

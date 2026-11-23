@@ -113,7 +113,6 @@ class RedisRateLimiter implements RateLimiter {
     }
 
     private static long ceilSeconds(long nanos) {
-        long perSecond = TimeUnit.SECONDS.toNanos(1);
-        return (nanos + perSecond - 1) / perSecond;
+        return Math.ceilDiv(nanos, TimeUnit.SECONDS.toNanos(1));
     }
 }
