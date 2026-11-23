@@ -64,3 +64,10 @@
 - Scope: every 30 s, HELD past hold_expires_at → EXPIRED + release inventory in the same tx, exactly once even with two schedulers racing; never clear hold_expires_at.
 - Constraint from 2.3 review: one reservation per transaction (batch row locks can deadlock with cancel/hold across room types). Design doc says "batches of 500" → keep 500 as the per-run cap, not the tx size.
 - Env vars: none required (cron/interval as app property with default).
+
+### [2026-11-23] [UNDERSTAND] — Story 2.5 rate limiting + IDOR tests
+- Track: Standard (security control on the booking API; touches reservation flow + Redis + SQL).
+- Scope (security-nuzul.md §2/§6): max 5 active holds per guest; 30 req/min per guest on POST; rate-limit test; IDOR test per resource.
+- Found: IDOR already covered per resource (HotelAdminIT, RoomTypeAdminIT, InventoryBulkIT, RateBulkIT, ConfirmIT, CancelIT); no GET reservation endpoint yet.
+- Env vars: none new (Redis already configured); limits become properties with defaults.
+- Branch: feature/2.5-rate-limits off main (PR #11 merged).

@@ -104,3 +104,9 @@
 - Security: pass — inline review: all SQL parameterized; no new endpoint/auth surface; logs carry reservation ids only; run bounded by batch-size; lock order reservation → inventory as in cancel (20 cancels vs 2 runs, no deadlock).
 - Open low: SKIP LOCKED means a hold whose row is locked by a long-running writer is retried next run (by design). ITs disable the job via src/test/resources/application.properties.
 - Status: pass
+
+### [2026-11-23 12:10] [VERIFY] — Story 2.5 rate limiting + active-hold cap
+- Tests: 258 unit + 226 IT passed / 0 failed (full ./mvnw verify, BUILD SUCCESS; RateLimitIT, ActiveHoldCapIT, RedisRateLimiterIT, all 5 release gates green)
+- Security: pass — Semgrep p/java + p/secrets on changed code: 0 findings; quality review: no critical/high (subject only from JWT, no bypass via path variants, advisory lock no deadlock path)
+- Open lows: advisory-lock wait has no lock_timeout; ActiveHoldCapIT pg_stat_activity barrier counts all lock waiters; interceptor skips non-Jwt principals silently
+- Status: pass

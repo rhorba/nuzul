@@ -269,3 +269,15 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-22 12:45] [SHIP] — Story 2.4 Hold expiry (ShedLock + SKIP LOCKED)
 - Summary: feature/2.4-expiry pushed; PR #11 → main, CI green. Release gate 4 (HoldExpiryIT) in place.
 - Status: complete
+
+### [2026-11-23] [PLAN] — Story 2.5 rate limits (approach B) — awaiting confirmation
+- HANDOFF Orchestrator → Scrum Master: B chosen (Bucket4j/Redis 30 POST/min/guest fail-open; exact 5-active-hold cap via advisory xact lock; metric; IDOR traceability). Need: batches.
+- B1 shared: TooManyRequestsException(429, Retry-After) + RateLimiter port + Bucket4j Lettuce adapter (fail-open, own timeouts) + metric + props.
+- B2 reservation: interceptor on POST /api/v1/reservations/** ; hold cap in HoldTransaction (lock → key replay → count → insert).
+- B3 tests (RateLimitIT, ActiveHoldCapIT incl. concurrency, Redis-down, unit) + docs (security §2, test-strategy IDOR table, application.yml).
+
+### [2026-11-23] [EXECUTE] — 2.5 Batch 1 shared rate limiter
+- Implementer: TooManyRequestsException→429+Retry-After; RateLimiter port; RedisRateLimiter + LettuceBucketStore (own client, 300ms deadline, fail-open); RateLimitProperties/Config; metric nuzul.ratelimit.rejected{rule}; .env.example.
+- Tests: unit 13 new pass; RedisRateLimiterIT 5/5 (Docker started by orchestrator).
+- Spec review: PASS. Quality review: PASS (0 crit/high). Open: M1 rediss:// URL not honoured → limiter silently fails open; M2 WARN per request during outage; M3 second Lettuce ClientResources; L4 conn leak if proxyManager throws; L5 interval refill allows 2x burst at boundary (by design); L6 subject must come from JWT; L7 RedisURI mutated.
+- [2026-11-23] Batch 1 review fixes: M1 rediss→TLS, M2 throttled WARN/INFO (incl. flapping) + 5s reconnect back-off, M3 shared ClientResources (direct injection), L4 conn close, L7 URI builder, monotonic nanoTime. Re-review PASS. Committed locally.
