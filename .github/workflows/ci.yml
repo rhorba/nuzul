@@ -32,11 +32,22 @@ jobs:
           cache: maven
       - name: Build, test, coverage gate (unit + Testcontainers + JaCoCo ≥ 80 %)
         run: ./mvnw -B -ntp verify
+      # On PRs the PR parameters are passed explicitly: the scanner's auto-configuration asks SonarCloud for the PR
+      # via its GitHub binding, which failed on PR #12 ("Illegal base64 character 2d"). Values come from the event
+      # through env vars (never interpolated into the script) so a branch name cannot inject shell.
       - name: SonarCloud scan + quality gate
         if: env.SONAR_TOKEN != ''
-        run: >
-          ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:5.9.0.7382:sonar
-          -Dsonar.qualitygate.wait=true
+        env:
+          PR_KEY: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          PR_ARGS=()
+          if [ -n "$PR_KEY" ]; then
+            PR_ARGS=("-Dsonar.pullrequest.key=$PR_KEY" "-Dsonar.pullrequest.branch=$PR_BRANCH" "-Dsonar.pullrequest.base=$PR_BASE")
+          fi
+          ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:5.9.0.7382:sonar \
+            -Dsonar.qualitygate.wait=true "${PR_ARGS[@]}"
       - name: SonarCloud skipped
         if: env.SONAR_TOKEN == ''
         run: echo "::notice::SONAR_TOKEN not set — SonarCloud scan skipped."
