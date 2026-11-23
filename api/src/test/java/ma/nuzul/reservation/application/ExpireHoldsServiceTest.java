@@ -45,6 +45,16 @@ class ExpireHoldsServiceTest {
         }
 
         @Override
+        public void lockGuestHolds(String guestSub) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
+        @Override
+        public int countActiveHolds(String guestSub, java.time.Instant now) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
+        @Override
         public Optional<Reservation> findByIdempotencyKey(String guestSub, UUID idempotencyKey) {
             throw new UnsupportedOperationException("not used here");
         }

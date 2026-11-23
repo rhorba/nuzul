@@ -94,3 +94,9 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **State:** branch feature/2.4-expiry pushed; awaiting merge of PR #11.
 **Next:** merge PR #11, then story 2.5 (rate limits) or 3.1 (outbox).
 **Carry:** Stripe refund Idempotency-Key; reconciliation job (PENDING/REFUNDING, charges whose hold expired); 3.1 outbox; lows (twin 410, HoldIT:88 regex, hanging-Redis test, CancelIT static REFUND_KEYS); 6.1 seeder single-replica guard; local `mvn clean` blocked by OneDrive lock on target/ (consider moving repo out of OneDrive); Docker Desktop must be running for ITs.
+
+### [2026-11-23] SESSION_END (10)
+**Done:** Story 2.5 shipped on PR #12 (CI green, Sonar gate OK): shared Bucket4j/Redis limiter (fail-open, throttled logs, reconnect back-off, rediss TLS, shared ClientResources), 30 POST/min/guest on /api/v1/reservations/** → 429 RATE_LIMITED; exact 5-active-hold cap via per-guest advisory xact lock → 429 TOO_MANY_ACTIVE_HOLDS; IDOR traceability table in test strategy. 258 unit + 226 IT, 98.6% lines. CI: Sonar PR params now explicit.
+**State:** PR #12 awaiting merge.
+**Next:** merge PR #12 (closes Sprint 2), then 3.1 outbox.
+**Carry:** 2.5 lows (advisory-lock lock_timeout; ActiveHoldCapIT barrier scope; interceptor non-JWT principal); SonarCloud GitHub binding may be broken (auto-config failed) — re-save binding in SonarCloud; Stripe refund Idempotency-Key; reconciliation job; prior lows (twin 410, HoldIT:88, CancelIT REFUND_KEYS); 6.1 seeder guard; OneDrive target/ lock; Docker Desktop must be running for ITs.

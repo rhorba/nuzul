@@ -21,6 +21,15 @@ public interface ReservationRepositoryPort {
 
     Optional<Reservation> findByIdempotencyKey(String guestSub, UUID idempotencyKey);
 
+    /**
+     * Serializes this guest's holds: a transaction-scoped Postgres advisory lock on the guest, released at commit or
+     * rollback. Must be called inside a transaction, before any inventory row is locked.
+     */
+    void lockGuestHolds(String guestSub);
+
+    /** The guest's HELD reservations whose hold is still running at {@code now} (hold_expires_at after it). */
+    int countActiveHolds(String guestSub, Instant now);
+
     /** The reservation, only when it belongs to {@code guestSub}: another guest's id reads as unknown (no IDOR). */
     Optional<Reservation> findForGuest(UUID id, String guestSub);
 

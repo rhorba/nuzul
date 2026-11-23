@@ -52,6 +52,13 @@ app:
     enabled: ${APP_EXPIRY_ENABLED:true}
     interval: ${APP_EXPIRY_INTERVAL:PT30S}
     batch-size: ${APP_EXPIRY_BATCH_SIZE:500}
+  rate-limit:
+    # Story 2.5: per-guest token bucket on POST /api/v1/reservations (capacity requests per period, refilled in one go
+    # at the end of each period; Redis, fail-open), and a cap on unpaid holds per guest.
+    reservation-post:
+      capacity: ${APP_RATE_LIMIT_RESERVATION_POST_CAPACITY:30}
+      period: ${APP_RATE_LIMIT_RESERVATION_POST_PERIOD:PT1M}
+    max-active-holds: ${APP_RATE_LIMIT_MAX_ACTIVE_HOLDS:5}
   seed:
     # Demo data (story 1.5). Off by default; the owner is the realm-pinned admin@nuzul.local user id.
     enabled: ${APP_SEED_ENABLED:false}

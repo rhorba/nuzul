@@ -64,3 +64,13 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 ### [2026-11-21] [BRAINSTORM] — Story 2.4 expiry job
 - Chosen: 🟡 ShedLock 7.10.1 (JDBC provider, V4 shedlock table) on a 30 s schedule + per-reservation tx: SELECT … FOR UPDATE SKIP LOCKED (HELD, past hold_expires_at) → conditional HELD→EXPIRED → release. Up to 500 candidates per run (design doc's batch size reinterpreted as a per-run cap: one row per tx avoids cross-room-type deadlocks with cancel/hold).
 - Rejected: 🟢 no ShedLock (every pod scans); 🔴 metrics now (stack in 6.3). 7.11.0 skipped (< 2 weeks old).
+
+### [2026-11-23] [DECISION] — Story 2.5 approach: B (balanced)
+- Bucket4j+Redis (Lettuce) per-guest bucket, 30 POST/min on /api/v1/reservations/** → 429 RATE_LIMITED + Retry-After.
+- Active-hold cap 5 in the hold tx, exact under concurrency via pg_advisory_xact_lock(hashtext(sub)) → 429 TOO_MANY_ACTIVE_HOLDS; idempotent replays answered before the cap.
+- Redis down → fail open (matches idempotency cache); cap + 10-min expiry still bound abuse.
+- Micrometer counter nuzul.ratelimit.rejected{rule}; limits in application.yml.
+- IDOR: traceability table in test strategy pointing at existing per-resource tests. Rejected C (per-IP, tiers, duplicate IDOR matrix) as YAGNI.
+
+### [2026-11-23] [DECISION] — 2.5 interval refill accepted (review L5)
+- Bucket refills the full capacity once per period, so a guest can burst up to 2× capacity (60) around a period boundary. Accepted: still bounded, and the active-hold cap limits inventory impact. Add a smaller greedy limit only if smoothing is ever needed.

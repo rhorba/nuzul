@@ -7,6 +7,7 @@ import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.GoneException;
 import ma.nuzul.shared.error.NotFoundException;
 import ma.nuzul.shared.error.PaymentRequiredException;
+import ma.nuzul.shared.error.TooManyRequestsException;
 import ma.nuzul.shared.error.UnprocessableException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.TypeMismatchException;
@@ -59,6 +60,14 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UnprocessableException.class)
     ProblemDetail handleUnprocessable(UnprocessableException ex) {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, ex);
+    }
+
+    /** 429; {@code Retry-After} (whole seconds) only when the limit knows when it lifts. */
+    @ExceptionHandler(TooManyRequestsException.class)
+    ResponseEntity<ProblemDetail> handleTooManyRequests(TooManyRequestsException ex) {
+        var response = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS);
+        ex.retryAfterSeconds().ifPresent(seconds -> response.header(HttpHeaders.RETRY_AFTER, Long.toString(seconds)));
+        return response.body(problem(HttpStatus.TOO_MANY_REQUESTS, ex));
     }
 
     @ExceptionHandler(DomainValidationException.class)
