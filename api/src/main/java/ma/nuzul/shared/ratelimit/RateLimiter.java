@@ -7,7 +7,10 @@ package ma.nuzul.shared.ratelimit;
  */
 public interface RateLimiter {
 
-    /** {@code POST /api/v1/reservations}: holds created per guest (config {@code app.rate-limit.reservation-post}). */
+    /**
+     * Guest POSTs under {@code /api/v1/reservations} (hold, confirm, cancel) per guest (config
+     * {@code app.rate-limit.reservation-post}).
+     */
     String RESERVATION_POST = "reservation-post";
 
     /**

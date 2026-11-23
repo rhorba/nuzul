@@ -29,6 +29,7 @@ import ma.nuzul.reservation.domain.ReservationStatus;
 import ma.nuzul.shared.error.CodedException;
 import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.error.TooManyRequestsException;
 import ma.nuzul.shared.error.UnprocessableException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.CannotAcquireLockException;
@@ -42,12 +43,16 @@ class HoldServiceTest {
             Clock.fixed(Instant.parse("2026-11-20T10:15:30.123456789Z"), ZoneOffset.ofHours(1));
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 20);
     private static final Guest GUEST = new Guest("guest-1", "Amina Guest", "amina@example.ma");
+    private static final int MAX_HOLDS = 5;
 
     private final UUID roomTypeId = UUID.randomUUID();
     private final UUID hotelId = UUID.randomUUID();
     private final InMemoryReservations reservations = new InMemoryReservations();
     private final MapCache cache = new MapCache();
     private final List<String> reserveCalls = new ArrayList<>();
+    /** Port calls made inside the hold transaction, in order. */
+    private final List<String> calls = new ArrayList<>();
+
     private final AtomicInteger lockFailuresLeft = new AtomicInteger();
     private boolean soldOut;
 
@@ -65,11 +70,12 @@ class HoldServiceTest {
             throw new SoldOutException();
         }
         reserveCalls.add(id + " " + in + " " + out + " " + rooms);
+        calls.add("reserve");
     });
     private final BookableRoomTypes bookable = id -> id.equals(roomTypeId) ? Optional.of(hotelId) : Optional.empty();
 
     private final HoldService service = new HoldService(
-            new HoldTransaction(reservations, pricing, inventory, CLOCK, 10),
+            new HoldTransaction(reservations, pricing, inventory, CLOCK, 10, MAX_HOLDS),
             reservations,
             bookable,
             cache,
@@ -139,7 +145,7 @@ class HoldServiceTest {
     void aKeyLostToAConcurrentInsertReplaysTheCommittedRow() {
         UUID key = UUID.randomUUID();
         HeldReservation first = service.hold(GUEST, key, request(5, 3, 2));
-        reservations.hideOnFirstLookup = true; // the pre-check misses it, the insert then conflicts
+        reservations.hiddenLookups = 2; // both look-ups miss it, the insert then conflicts (the safety net)
 
         assertThat(service.hold(GUEST, key, request(5, 3, 2))).isEqualTo(first);
         assertThat(reserveCalls).hasSize(1);
@@ -213,7 +219,8 @@ class HoldServiceTest {
                             throw new DataIntegrityViolationException("check violation");
                         }),
                         CLOCK,
-                        10),
+                        10,
+                        MAX_HOLDS),
                 reservations,
                 bookable,
                 cache,
@@ -297,7 +304,7 @@ class HoldServiceTest {
         HeldReservation first = service.hold(GUEST, key, request(0, 1, 1));
         cache.entries.clear();
         HoldService tomorrow = new HoldService(
-                new HoldTransaction(reservations, pricing, inventory, CLOCK, 10),
+                new HoldTransaction(reservations, pricing, inventory, CLOCK, 10, MAX_HOLDS),
                 reservations,
                 bookable,
                 cache,
@@ -305,6 +312,78 @@ class HoldServiceTest {
                 Duration.ofMillis(1));
 
         assertThat(tomorrow.hold(GUEST, key, request(0, 1, 1))).isEqualTo(first);
+    }
+
+    /** {@code count} HELD reservations of {@code guest}, all still active (nothing reserved for them here). */
+    private void activeHolds(Guest guest, int count) {
+        for (int i = 0; i < count; i++) {
+            service.hold(guest, UUID.randomUUID(), request(5, 1, 1));
+        }
+        reserveCalls.clear();
+        calls.clear();
+    }
+
+    @Test
+    void theGuestLockIsTakenFirstThenAKnownKeyIsLookedUpThenActiveHoldsAreCountedThenTheHoldIsWritten() {
+        service.hold(GUEST, UUID.randomUUID(), request(5, 1, 1));
+
+        assertThat(calls)
+                .containsExactly(
+                        "find guest-1", // HoldService's replay pre-check, outside the transaction
+                        "lock guest-1",
+                        "find guest-1",
+                        "count guest-1 at " + Instant.now(CLOCK),
+                        "insert guest-1",
+                        "reserve");
+    }
+
+    @Test
+    void theCapRefusesTheNextHoldBeforeAnyWrite() {
+        activeHolds(GUEST, MAX_HOLDS);
+
+        Throwable t = catchThrowable(() -> service.hold(GUEST, UUID.randomUUID(), request(5, 1, 1)));
+
+        assertThat(t).isInstanceOf(TooManyRequestsException.class);
+        var e = (TooManyRequestsException) t;
+        assertThat(e.code()).isEqualTo(HoldTransaction.TOO_MANY_ACTIVE_HOLDS);
+        assertThat(e.retryAfterSeconds()).isEmpty();
+        assertThat(e.getMessage()).contains("5");
+        assertThat(calls)
+                .containsExactly(
+                        "find guest-1", "lock guest-1", "find guest-1", "count guest-1 at " + Instant.now(CLOCK));
+        assertThat(reserveCalls).isEmpty();
+        assertThat(reservations.byKey).hasSize(MAX_HOLDS);
+    }
+
+    @Test
+    void oneBelowTheCapStillHolds() {
+        activeHolds(GUEST, MAX_HOLDS - 1);
+
+        assertThat(service.hold(GUEST, UUID.randomUUID(), request(5, 1, 1)).status())
+                .isEqualTo(ReservationStatus.HELD);
+        assertThat(reserveCalls).hasSize(1);
+    }
+
+    @Test
+    void theCapIsPerGuest() {
+        activeHolds(GUEST, MAX_HOLDS);
+
+        assertThat(service.hold(new Guest("guest-2", "Youssef", "y@example.ma"), UUID.randomUUID(), request(5, 1, 1))
+                        .status())
+                .isEqualTo(ReservationStatus.HELD);
+    }
+
+    @Test
+    void aReplayFoundUnderTheGuestLockIsNeverRefusedByTheCap() {
+        UUID key = UUID.randomUUID();
+        HeldReservation first = service.hold(GUEST, key, request(5, 3, 2));
+        activeHolds(GUEST, MAX_HOLDS - 1);
+        cache.entries.clear();
+        reservations.hiddenLookups = 1; // the pre-check misses it (a concurrent duplicate), the lock holder sees it
+
+        assertThat(service.hold(GUEST, key, request(5, 3, 2))).isEqualTo(first);
+        assertThat(calls).containsExactly("find guest-1", "lock guest-1", "find guest-1");
+        assertThat(reserveCalls).isEmpty();
     }
 
     /** Stands in for Redis. */
@@ -323,15 +402,16 @@ class HoldServiceTest {
         }
     }
 
-    /** Mirrors the SQL: insert unless (guest, key) exists. Optionally hides a row once, or undoes a failed attempt. */
+    /** Mirrors the SQL: insert unless (guest, key) exists. Optionally hides a row from the next look-ups, or undoes a failed attempt. */
     private final class InMemoryReservations implements ReservationRepositoryPort {
 
         final Map<String, Reservation> byKey = new HashMap<>();
-        boolean hideOnFirstLookup;
+        int hiddenLookups;
         boolean rollBackOnLockFailure;
 
         @Override
         public boolean insertIfKeyAbsent(Reservation r) {
+            calls.add("insert " + r.guestSub());
             String key = r.guestSub() + "|" + r.idempotencyKey();
             if (byKey.containsKey(key)) {
                 return false;
@@ -345,11 +425,28 @@ class HoldServiceTest {
 
         @Override
         public Optional<Reservation> findByIdempotencyKey(String guestSub, UUID idempotencyKey) {
-            if (hideOnFirstLookup) {
-                hideOnFirstLookup = false;
+            calls.add("find " + guestSub);
+            if (hiddenLookups > 0) {
+                hiddenLookups--;
                 return Optional.empty();
             }
             return Optional.ofNullable(byKey.get(guestSub + "|" + idempotencyKey));
+        }
+
+        @Override
+        public void lockGuestHolds(String guestSub) {
+            calls.add("lock " + guestSub);
+        }
+
+        /** Mirrors the SQL: HELD and not yet expired at {@code now}. */
+        @Override
+        public int countActiveHolds(String guestSub, Instant now) {
+            calls.add("count " + guestSub + " at " + now);
+            return (int) byKey.values().stream()
+                    .filter(r -> r.guestSub().equals(guestSub))
+                    .filter(r -> r.status() == ReservationStatus.HELD)
+                    .filter(r -> r.holdExpiresAt().isAfter(now))
+                    .count();
         }
 
         @Override

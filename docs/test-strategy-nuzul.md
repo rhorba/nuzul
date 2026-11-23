@@ -20,5 +20,25 @@ Owner: Test Architect · Status: DRAFT
 4. `HoldExpiryIT`: an expired hold releases inventory exactly once, even with two schedulers racing.
 5. `InventoryIntegrityIT`: the DB refuses oversell even through a raw SQL write.
 
+## Security tests (story 2.5, security doc §6)
+**IDOR / cross-owner, one per resource.** Another owner or guest always gets 404 (never 403), and nothing changes.
+
+| Resource | Endpoint(s) | Test |
+|---|---|---|
+| Hotel | `GET/PUT /api/v1/admin/hotels/{id}` | `HotelAdminIT.otherOwnerGetsNotFoundOnGetAndPutAndHotelIsUnchanged` |
+| Hotel list | `GET /api/v1/admin/hotels` | `HotelAdminIT.listReturnsOnlyCallersHotelsNewestFirstWithPageMetadata` |
+| Room type | `/api/v1/admin/hotels/{hotelId}/room-types/**` | `RoomTypeAdminIT.otherOwnerGetsHotelNotFoundOnEveryEndpointAndNothingChanges`, `updateUnderTheWrongHotelIsRoomTypeNotFoundAndLeavesItUnchanged` |
+| Inventory | `PUT /api/v1/admin/room-types/{id}/inventory` | `InventoryBulkIT.otherOwnerIs404RoomTypeNotFoundAndNothingChanges` |
+| Rates | `PUT /api/v1/admin/room-types/{id}/rates` | `RateBulkIT.otherOwnerIs404RoomTypeNotFoundAndNothingChanges` |
+| Reservation confirm | `POST /api/v1/reservations/{id}/confirm` | `ConfirmIT.anotherGuestsReservationIs404AndACancelledOneIs409` |
+| Reservation cancel | `POST /api/v1/reservations/{id}/cancel` | `CancelIT.expiredIs410AndAnotherGuestsIs404` |
+| Idempotency key | `POST /api/v1/reservations` | `IdempotencyIT.theSameKeyFromAnotherGuestIsAnotherReservation` |
+
+A new resource is not done until it has a row here.
+
+**Abuse limits.**
+- `RateLimitIT`: per-guest bucket on reservation POSTs gives 429 `RATE_LIMITED` with `Retry-After`. Buckets are per guest, 401/403 don't consume tokens, and the limiter fails open when Redis is down.
+- `ActiveHoldCapIT`: the 6th active hold gets 429 `TOO_MANY_ACTIVE_HOLDS`. Expired and cancelled holds don't count, and replays are never rejected. 10 parallel holds against 4 active ones give exactly 1 success.
+
 ## Coverage
 JaCoCo ≥ 80 % lines on `api` (CTS rule 6), enforced by the Sonar quality gate, which also requires 0 new bugs or vulnerabilities and ≤ 3 % duplication.

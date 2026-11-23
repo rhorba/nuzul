@@ -13,7 +13,7 @@ Attackers: anonymous scrapers, a guest tampering with other guests' bookings, a 
 | Tampering | Changing the price in the request | The price is never accepted from the client; computed server-side from `rate` |
 | Repudiation | "I never cancelled" | An audit log of reservation state changes with `sub`, IP and traceId |
 | Info disclosure | IDOR on `/reservations/{id}` | Ownership check in the query (`AND guest_sub = :sub`); 404, not 403 |
-| DoS | Hold-spamming to block inventory | A Redis rate limit of 5 active holds per guest and 30 req/min on POST; holds expire in 10 min |
+| DoS | Hold-spamming to block inventory | At most 5 active holds per guest, enforced exactly in the hold transaction (per-guest advisory lock + count) → 429 `TOO_MANY_ACTIVE_HOLDS`; 30 POST/min per guest (Bucket4j on Redis, keyed by JWT `sub`) → 429 `RATE_LIMITED` + `Retry-After`; the limiter fails open if Redis is down, so the cap and the 10-min hold expiry remain the backstop |
 | Elevation | A hotel admin edits another hotel | `hotel.owner_sub = jwt.sub` in every admin query; tested |
 
 ## 3. Authentication

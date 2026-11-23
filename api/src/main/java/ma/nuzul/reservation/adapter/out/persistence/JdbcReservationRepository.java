@@ -42,6 +42,21 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
     static final String FIND_BY_KEY =
             SELECT_COLUMNS + " WHERE guest_sub = :guestSub AND idempotency_key = :idempotencyKey";
 
+    /*
+     * Two-int advisory lock: a fixed namespace for "a guest's holds" plus the guest. hashtext() is fine for a lock that
+     * lives one transaction (it never has to match a value stored on disk); a collision between two guests only makes
+     * them wait for each other briefly, never lets one skip the cap. The namespace keeps these locks apart from any
+     * other advisory lock in the database.
+     */
+    static final String LOCK_GUEST_HOLDS =
+            "SELECT pg_advisory_xact_lock(hashtext('nuzul.reservation.hold'), hashtext(:guestSub))";
+
+    /* Uses reservation_guest (guest_sub, created_at DESC): a guest has few rows, so the filter after it is cheap. */
+    static final String COUNT_ACTIVE_HOLDS = """
+            SELECT count(*) FROM reservation
+            WHERE guest_sub = :guestSub AND status = 'HELD' AND hold_expires_at > :now
+            """;
+
     private final JdbcClient jdbc;
 
     JdbcReservationRepository(JdbcClient jdbc) {
@@ -77,6 +92,24 @@ class JdbcReservationRepository implements ReservationRepositoryPort {
                 .param("idempotencyKey", idempotencyKey)
                 .query(JdbcReservationRepository::map)
                 .optional();
+    }
+
+    @Override
+    public void lockGuestHolds(String guestSub) {
+        jdbc.sql(LOCK_GUEST_HOLDS)
+                .param("guestSub", guestSub)
+                .query((rs, i) -> i)
+                .single();
+    }
+
+    @Override
+    public int countActiveHolds(String guestSub, Instant now) {
+        return jdbc.sql(COUNT_ACTIVE_HOLDS)
+                .param("guestSub", guestSub)
+                .param("now", Timestamp.from(now))
+                .query(Long.class)
+                .single()
+                .intValue();
     }
 
     @Override

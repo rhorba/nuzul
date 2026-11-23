@@ -55,6 +55,16 @@ class ConfirmServiceTest {
         }
 
         @Override
+        public void lockGuestHolds(String guestSub) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int countActiveHolds(String guestSub, java.time.Instant now) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Optional<Reservation> findByIdempotencyKey(String guestSub, UUID idempotencyKey) {
             throw new UnsupportedOperationException();
         }
