@@ -74,3 +74,8 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 
 ### [2026-11-23] [DECISION] — 2.5 interval refill accepted (review L5)
 - Bucket refills the full capacity once per period, so a guest can burst up to 2× capacity (60) around a period boundary. Accepted: still bounded, and the active-hold cap limits inventory impact. Add a smaller greedy limit only if smoothing is ever needed.
+
+### [2026-11-24 10:05] [BRAINSTORM] — Story 3.1 approach
+- Options: 🟢 ADR-4 poller + idempotent consumer helper | 🟡 + lag gauge, attempts/last_error (V5), consumer DLT, retention cleanup | 🔴 Modulith event externalization (reverses ADR-4)
+- Chosen: 🟡 BALANCED (user)
+- Why: lag alert (>60 s) and poison-row handling are already in system design; keeps ADR-4

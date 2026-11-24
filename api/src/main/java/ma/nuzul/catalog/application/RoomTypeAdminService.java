@@ -1,15 +1,21 @@
 package ma.nuzul.catalog.application;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import ma.nuzul.catalog.RoomTypeChanged;
 import ma.nuzul.catalog.domain.RoomType;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.OutboxPort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Every operation first loads the parent hotel through the owner-scoped finder (HOTEL_NOT_FOUND otherwise), then
- * reads room types through finders that are owner-scoped again in SQL.
+ * reads room types through finders that are owner-scoped again in SQL. Every write appends a {@code RoomTypeChanged}
+ * event in the same transaction.
  */
 @Service
 @Transactional
@@ -19,16 +25,20 @@ class RoomTypeAdminService implements ManageRoomTypesUseCase {
 
     private final HotelRepositoryPort hotels;
     private final RoomTypeRepositoryPort roomTypes;
+    private final OutboxPort outbox;
+    private final Clock clock;
 
-    RoomTypeAdminService(HotelRepositoryPort hotels, RoomTypeRepositoryPort roomTypes) {
+    RoomTypeAdminService(HotelRepositoryPort hotels, RoomTypeRepositoryPort roomTypes, OutboxPort outbox, Clock clock) {
         this.hotels = hotels;
         this.roomTypes = roomTypes;
+        this.outbox = outbox;
+        this.clock = clock;
     }
 
     @Override
     public RoomType create(String ownerSub, UUID hotelId, RoomTypeDetails d) {
         requireOwnHotel(ownerSub, hotelId);
-        return roomTypes.save(new RoomType(UUID.randomUUID(), hotelId, d.name(), d.capacity(), d.bedConfig()));
+        return changed(roomTypes.save(new RoomType(UUID.randomUUID(), hotelId, d.name(), d.capacity(), d.bedConfig())));
     }
 
     @Override
@@ -45,7 +55,18 @@ class RoomTypeAdminService implements ManageRoomTypesUseCase {
                 .findByIdAndHotelAndOwner(roomTypeId, hotelId, ownerSub)
                 .orElseThrow(
                         () -> new NotFoundException(ROOM_TYPE_NOT_FOUND, "Room type " + roomTypeId + " not found"));
-        return roomTypes.save(new RoomType(current.id(), current.hotelId(), d.name(), d.capacity(), d.bedConfig()));
+        return changed(
+                roomTypes.save(new RoomType(current.id(), current.hotelId(), d.name(), d.capacity(), d.bedConfig())));
+    }
+
+    /** Appends the event for a room type that was just saved, and hands it back. */
+    private RoomType changed(RoomType saved) {
+        outbox.append(
+                Aggregate.ROOM_TYPE,
+                saved.id(),
+                RoomTypeChanged.TYPE,
+                new RoomTypeChanged(saved.id(), saved.hotelId(), Instant.now(clock)));
+        return saved;
     }
 
     private void requireOwnHotel(String ownerSub, UUID hotelId) {

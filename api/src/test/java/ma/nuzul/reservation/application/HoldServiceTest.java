@@ -22,6 +22,7 @@ import ma.nuzul.inventory.SoldOutException;
 import ma.nuzul.inventory.StayPricing;
 import ma.nuzul.inventory.StayQuote;
 import ma.nuzul.inventory.domain.BookingWindow;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.domain.Guest;
 import ma.nuzul.reservation.domain.HoldRequest;
 import ma.nuzul.reservation.domain.Reservation;
@@ -31,6 +32,8 @@ import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.NotFoundException;
 import ma.nuzul.shared.error.TooManyRequestsException;
 import ma.nuzul.shared.error.UnprocessableException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,6 +51,7 @@ class HoldServiceTest {
     private final UUID roomTypeId = UUID.randomUUID();
     private final UUID hotelId = UUID.randomUUID();
     private final InMemoryReservations reservations = new InMemoryReservations();
+    private final RecordingOutbox outbox = new RecordingOutbox();
     private final MapCache cache = new MapCache();
     private final List<String> reserveCalls = new ArrayList<>();
     /** Port calls made inside the hold transaction, in order. */
@@ -75,7 +79,7 @@ class HoldServiceTest {
     private final BookableRoomTypes bookable = id -> id.equals(roomTypeId) ? Optional.of(hotelId) : Optional.empty();
 
     private final HoldService service = new HoldService(
-            new HoldTransaction(reservations, pricing, inventory, CLOCK, 10, MAX_HOLDS),
+            new HoldTransaction(reservations, pricing, inventory, outbox, CLOCK, 10, MAX_HOLDS),
             reservations,
             bookable,
             cache,
@@ -127,6 +131,61 @@ class HoldServiceTest {
         assertThat(row.guestName()).isEqualTo("Amina Guest");
         assertThat(row.guestEmail()).isEqualTo("amina@example.ma");
         assertThat(row.status()).isEqualTo(ReservationStatus.HELD);
+    }
+
+    @Test
+    void aNewHoldAppendsOneReservationHeldEventWithoutPersonalData() {
+        HeldReservation held = service.hold(GUEST, UUID.randomUUID(), request(5, 3, 2));
+
+        assertThat(outbox.events).hasSize(1);
+        RecordingOutbox.Event e = outbox.events.get(0);
+        assertThat(e.aggregate()).isEqualTo(Aggregate.RESERVATION);
+        assertThat(e.aggregateId()).isEqualTo(held.id());
+        assertThat(e.type()).isEqualTo(ReservationEvent.HELD);
+        assertThat(e.payload())
+                .isEqualTo(new ReservationEvent(
+                        held.id(),
+                        hotelId,
+                        roomTypeId,
+                        TODAY.plusDays(5),
+                        TODAY.plusDays(8),
+                        2,
+                        "HELD",
+                        "3903.00",
+                        Instant.now(CLOCK)));
+    }
+
+    @Test
+    void aKnownKeyReplayAppendsNoSecondEvent() {
+        UUID key = UUID.randomUUID();
+        service.hold(GUEST, key, request(5, 3, 2));
+        cache.entries.clear();
+        reservations.hiddenLookups = 1; // the pre-check misses it: the replay is found under the guest lock
+
+        service.hold(GUEST, key, request(5, 3, 2));
+
+        assertThat(outbox.types()).containsExactly(ReservationEvent.HELD);
+    }
+
+    @Test
+    void anInsertConflictReplayAppendsNoSecondEvent() {
+        UUID key = UUID.randomUUID();
+        service.hold(GUEST, key, request(5, 3, 2));
+        cache.entries.clear();
+        reservations.hiddenLookups = 2; // both look-ups miss it: the insert conflicts (the safety net)
+
+        service.hold(GUEST, key, request(5, 3, 2));
+
+        assertThat(outbox.types()).containsExactly(ReservationEvent.HELD);
+    }
+
+    @Test
+    void soldOutAppendsNoEvent() {
+        soldOut = true;
+
+        catchThrowable(() -> service.hold(GUEST, UUID.randomUUID(), request(5, 3, 2)));
+
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test
@@ -218,6 +277,7 @@ class HoldServiceTest {
                             reserveCalls.add("attempt");
                             throw new DataIntegrityViolationException("check violation");
                         }),
+                        outbox,
                         CLOCK,
                         10,
                         MAX_HOLDS),
@@ -304,7 +364,7 @@ class HoldServiceTest {
         HeldReservation first = service.hold(GUEST, key, request(0, 1, 1));
         cache.entries.clear();
         HoldService tomorrow = new HoldService(
-                new HoldTransaction(reservations, pricing, inventory, CLOCK, 10, MAX_HOLDS),
+                new HoldTransaction(reservations, pricing, inventory, outbox, CLOCK, 10, MAX_HOLDS),
                 reservations,
                 bookable,
                 cache,

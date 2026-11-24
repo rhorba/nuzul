@@ -8,12 +8,14 @@ import java.util.UUID;
 import ma.nuzul.inventory.InventoryReservations;
 import ma.nuzul.inventory.StayPricing;
 import ma.nuzul.inventory.StayQuote;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.domain.CancellationPolicy;
 import ma.nuzul.reservation.domain.Guest;
 import ma.nuzul.reservation.domain.HoldRequest;
 import ma.nuzul.reservation.domain.Reservation;
 import ma.nuzul.reservation.domain.ReservationStatus;
 import ma.nuzul.shared.error.TooManyRequestsException;
+import ma.nuzul.shared.outbox.OutboxPort;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
  *       without a rate is SOLD_OUT);
  *   <li>insert the reservation, keyed on (guest, idempotency key). Under the guest lock a duplicate key is already
  *       caught in step 2; the unique index stays as the safety net: a conflicting insert replays the committed row;
- *   <li>reserve the rooms with the guarded UPDATE (inventory locks taken in ascending night order).
+ *   <li>reserve the rooms with the guarded UPDATE (inventory locks taken in ascending night order);
+ *   <li>append {@code ReservationHeld} to the outbox. Last, so it is written only for a hold that really happened: a
+ *       replay (step 2 or the step 5 safety net) returns before it and adds no second event.
  * </ol>
  *
- * SOLD_OUT from reserve() rolls the whole transaction back, the reservation row included.
+ * SOLD_OUT from reserve() rolls the whole transaction back, the reservation row included (no event was written).
  */
 @Component
 class HoldTransaction {
@@ -45,6 +49,7 @@ class HoldTransaction {
     private final ReservationRepositoryPort reservations;
     private final StayPricing pricing;
     private final InventoryReservations inventory;
+    private final OutboxPort outbox;
     private final Clock clock;
     private final Duration holdDuration;
     private final int maxActiveHolds;
@@ -53,12 +58,14 @@ class HoldTransaction {
             ReservationRepositoryPort reservations,
             StayPricing pricing,
             InventoryReservations inventory,
+            OutboxPort outbox,
             Clock clock,
             @Value("${app.hold-minutes}") long holdMinutes,
             @Value("${app.rate-limit.max-active-holds}") int maxActiveHolds) {
         this.reservations = reservations;
         this.pricing = pricing;
         this.inventory = inventory;
+        this.outbox = outbox;
         this.clock = clock;
         this.holdDuration = Duration.ofMinutes(holdMinutes);
         this.maxActiveHolds = maxActiveHolds;
@@ -101,6 +108,7 @@ class HoldTransaction {
                     .orElseThrow(() -> new IllegalStateException("idempotency key row not visible after conflict"));
         }
         inventory.reserve(request.roomTypeId(), request.checkIn(), request.checkOut(), request.rooms());
+        ReservationEvents.append(outbox, clock, reservation, ReservationStatus.HELD, ReservationEvent.HELD);
         return reservation;
     }
 

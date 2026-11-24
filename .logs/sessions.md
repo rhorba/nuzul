@@ -100,3 +100,5 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **State:** PR #12 awaiting merge.
 **Next:** merge PR #12 (closes Sprint 2), then 3.1 outbox.
 **Carry:** 2.5 lows (advisory-lock lock_timeout; ActiveHoldCapIT barrier scope; interceptor non-JWT principal); SonarCloud GitHub binding may be broken (auto-config failed) — re-save binding in SonarCloud; Stripe refund Idempotency-Key; reconciliation job; prior lows (twin 410, HoldIT:88, CancelIT REFUND_KEYS); 6.1 seeder guard; OneDrive target/ lock; Docker Desktop must be running for ITs.
+**Update (2026-11-23, end):** PR #12 merged (1f54fb1), main CI green → Sprint 2 complete. Local `main` is current; this log + the main-CI entry in activity.md are uncommitted and go in with the first commit of the next branch.
+**Next session:** start story 3.1 (outbox → Kafka) on `feature/3.1-outbox` from main; Docker Desktop must be running.

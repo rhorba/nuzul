@@ -21,6 +21,23 @@ spring:
       url: ${REDIS_URL:redis://localhost:6379}
       timeout: 300ms
       connect-timeout: 300ms
+  kafka:
+    # Story 3.1: the outbox relay is the only producer; consumers dedupe on processed_event (at-least-once).
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        max.block.ms: 5000
+    consumer:
+      group-id: ${KAFKA_GROUP_ID:nuzul-api}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   security:
     oauth2:
       resourceserver:
@@ -52,6 +69,14 @@ app:
     enabled: ${APP_EXPIRY_ENABLED:true}
     interval: ${APP_EXPIRY_INTERVAL:PT30S}
     batch-size: ${APP_EXPIRY_BATCH_SIZE:500}
+  outbox:
+    # Story 3.1 (ADR-4): one replica at a time (ShedLock) publishes unpublished outbox rows to Kafka, oldest first.
+    # A row that fails max-attempts times is parked (outbox.failed gauge) so it never blocks the rows behind it.
+    enabled: ${APP_OUTBOX_ENABLED:true}
+    interval: ${APP_OUTBOX_INTERVAL:PT1S}
+    batch-size: ${APP_OUTBOX_BATCH_SIZE:100}
+    max-attempts: ${APP_OUTBOX_MAX_ATTEMPTS:10}
+    retention: ${APP_OUTBOX_RETENTION:P7D}
   rate-limit:
     # Story 2.5: per-guest token bucket on POST /api/v1/reservations (capacity requests per period, refilled in one go
     # at the end of each period; Redis, fail-open), and a cap on unpaid holds per guest.

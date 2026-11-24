@@ -17,6 +17,7 @@ import java.util.UUID;
 import ma.nuzul.payment.ChargeResult;
 import ma.nuzul.payment.PaymentStatus;
 import ma.nuzul.payment.Payments;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.domain.CancellationPolicy;
 import ma.nuzul.reservation.domain.Reservation;
 import ma.nuzul.reservation.domain.ReservationStatus;
@@ -26,6 +27,8 @@ import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.GoneException;
 import ma.nuzul.shared.error.NotFoundException;
 import ma.nuzul.shared.error.PaymentRequiredException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 
 /** Every confirm branch against in-memory reservations and a scripted Payments; no Spring, no transactions. */
@@ -38,6 +41,7 @@ class ConfirmServiceTest {
 
     private final Map<UUID, Reservation> rows = new HashMap<>();
     private final List<String> calls = new ArrayList<>();
+    private final RecordingOutbox outbox = new RecordingOutbox();
     private final UUID paymentId = UUID.randomUUID();
     private PaymentStatus beginStatus = PaymentStatus.PENDING;
     private ChargeResult chargeAnswer = new ChargeResult.Approved("ch_1");
@@ -165,8 +169,8 @@ class ConfirmServiceTest {
         }
     };
 
-    private final ConfirmService service =
-            new ConfirmService(reservations, new ConfirmTransactions(reservations, payments, CLOCK), payments, CLOCK);
+    private final ConfirmService service = new ConfirmService(
+            reservations, new ConfirmTransactions(reservations, payments, outbox, CLOCK), payments, CLOCK);
 
     private static Reservation withStatus(Reservation r, ReservationStatus status) {
         return new Reservation(
@@ -224,6 +228,54 @@ class ConfirmServiceTest {
                 .isEqualTo(new ConfirmReservationUseCase.Confirmed(id, ReservationStatus.CONFIRMED, TOTAL));
         assertThat(calls).containsExactly("begin 1400.00", "charge tok_4242", "capture ch_1");
         assertThat(rows.get(id).status()).isEqualTo(ReservationStatus.CONFIRMED);
+    }
+
+    @Test
+    void aConfirmAndCaptureAppendOneReservationConfirmedEvent() {
+        UUID id = reservation(ReservationStatus.HELD, NOW.plusSeconds(60));
+        Reservation r = rows.get(id);
+
+        service.confirm(GUEST, id, "tok_4242");
+        service.confirm(GUEST, id, "tok_4242"); // already CONFIRMED: answered without a transaction
+
+        assertThat(outbox.events).hasSize(1);
+        RecordingOutbox.Event e = outbox.events.get(0);
+        assertThat(e.aggregate()).isEqualTo(Aggregate.RESERVATION);
+        assertThat(e.aggregateId()).isEqualTo(id);
+        assertThat(e.type()).isEqualTo(ReservationEvent.CONFIRMED);
+        assertThat(e.payload())
+                .isEqualTo(new ReservationEvent(
+                        id, r.hotelId(), r.roomTypeId(), r.checkIn(), r.checkOut(), 1, "CONFIRMED", "1400.00", NOW));
+    }
+
+    @Test
+    void aConfirmThatLostTheHoldAppendsNoEvent() {
+        UUID id = reservation(ReservationStatus.HELD, NOW.plusSeconds(60));
+        duringCharge = () -> rows.put(id, withStatus(rows.get(id), ReservationStatus.EXPIRED));
+
+        catchThrowable(() -> service.confirm(GUEST, id, "tok"));
+
+        assertThat(outbox.events).isEmpty();
+    }
+
+    @Test
+    void aLostCaptureRollsBackWithNoEvent() {
+        UUID id = reservation(ReservationStatus.HELD, NOW.plusSeconds(60));
+        duringCharge = () -> refundClaimed = true; // CaptureLost is thrown after confirmIfHeld, before the append
+
+        catchThrowable(() -> service.confirm(GUEST, id, "tok"));
+
+        assertThat(outbox.events).isEmpty();
+    }
+
+    @Test
+    void aDeclinedCardAppendsNoEvent() {
+        UUID id = reservation(ReservationStatus.HELD, NOW.plusSeconds(60));
+        chargeAnswer = new ChargeResult.Declined("card declined");
+
+        catchThrowable(() -> service.confirm(GUEST, id, "tok"));
+
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test

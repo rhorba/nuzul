@@ -18,9 +18,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import ma.nuzul.inventory.InventoryReservations;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.domain.CancellationPolicy;
 import ma.nuzul.reservation.domain.Reservation;
 import ma.nuzul.reservation.domain.ReservationStatus;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 
 /** Story 2.4: the expiry run over an in-memory repository and inventory (races and SQL are in HoldExpiryIT). */
@@ -37,6 +40,7 @@ class ExpireHoldsServiceTest {
 
     private final Set<UUID> releaseFails = ConcurrentHashMap.newKeySet();
     private final List<UUID> released = new ArrayList<>();
+    private final RecordingOutbox outbox = new RecordingOutbox();
 
     private final ReservationRepositoryPort repository = new ReservationRepositoryPort() {
         @Override
@@ -128,7 +132,8 @@ class ExpireHoldsServiceTest {
     };
 
     private ExpireHoldsService service(int batchSize) {
-        return new ExpireHoldsService(repository, new ExpiryTransaction(repository, inventory), CLOCK, batchSize);
+        return new ExpireHoldsService(
+                repository, new ExpiryTransaction(repository, inventory, outbox, CLOCK), CLOCK, batchSize);
     }
 
     private static boolean due(Reservation r, Instant now) {
@@ -191,6 +196,46 @@ class ExpireHoldsServiceTest {
         assertThat(rows.get(endedNow.id()).holdExpiresAt()).isEqualTo(NOW); // kept
         assertThat(service(500).expireDueHolds()).isZero(); // a second run finds nothing
         assertThat(released).hasSize(2);
+    }
+
+    @Test
+    void eachExpiredHoldAppendsOneReservationExpiredEvent() {
+        Reservation due = reservation(ReservationStatus.HELD, NOW.minusSeconds(60));
+
+        service(500).expireDueHolds();
+        service(500).expireDueHolds(); // nothing left to expire: no second event
+
+        assertThat(outbox.events).hasSize(1);
+        RecordingOutbox.Event e = outbox.events.get(0);
+        assertThat(e.aggregate()).isEqualTo(Aggregate.RESERVATION);
+        assertThat(e.aggregateId()).isEqualTo(due.id());
+        assertThat(e.type()).isEqualTo(ReservationEvent.EXPIRED);
+        assertThat(e.payload())
+                .isEqualTo(new ReservationEvent(
+                        due.id(),
+                        due.hotelId(),
+                        due.roomTypeId(),
+                        due.checkIn(),
+                        due.checkOut(),
+                        2,
+                        "EXPIRED",
+                        "1400.00",
+                        NOW));
+    }
+
+    @Test
+    void holdsThatWereNotExpiredAppendNothing() {
+        Reservation busy = reservation(ReservationStatus.HELD, NOW.minusSeconds(60));
+        lockedElsewhere.add(busy.id());
+        Reservation raced = reservation(ReservationStatus.HELD, NOW.minusSeconds(60));
+        changedAfterLock.add(raced.id());
+        Reservation broken = reservation(ReservationStatus.HELD, NOW.minusSeconds(60));
+        releaseFails.add(broken.roomTypeId()); // throws before the append; the transaction would roll back
+        reservation(ReservationStatus.HELD, NOW.plusSeconds(60));
+
+        assertThat(service(500).expireDueHolds()).isZero();
+
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test

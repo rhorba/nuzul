@@ -4,8 +4,10 @@ import java.time.Clock;
 import java.time.Instant;
 import ma.nuzul.inventory.InventoryReservations;
 import ma.nuzul.payment.Payments;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.domain.Reservation;
 import ma.nuzul.reservation.domain.ReservationStatus;
+import ma.nuzul.shared.outbox.OutboxPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -19,7 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>a conditional status change {@code HELD|CONFIRMED -> CANCELLED} from the status the caller read, so a cancel
  *       racing a confirm, another cancel or the expiry job never wins twice;
  *   <li>the rooms released (inventory rows locked in ascending night order, after the reservation row);
- *   <li>for a CONFIRMED stay still inside its free-cancellation window, its payment claimed for a refund.
+ *   <li>for a CONFIRMED stay still inside its free-cancellation window, its payment claimed for a refund;
+ *   <li>the {@code ReservationCancelled} event appended to the outbox (only when step 1 won).
  * </ol>
  *
  * The provider is called only after commit (no external call inside a transaction).
@@ -32,13 +35,19 @@ class CancelTransaction {
     private final ReservationRepositoryPort reservations;
     private final InventoryReservations inventory;
     private final Payments payments;
+    private final OutboxPort outbox;
     private final Clock clock;
 
     CancelTransaction(
-            ReservationRepositoryPort reservations, InventoryReservations inventory, Payments payments, Clock clock) {
+            ReservationRepositoryPort reservations,
+            InventoryReservations inventory,
+            Payments payments,
+            OutboxPort outbox,
+            Clock clock) {
         this.reservations = reservations;
         this.inventory = inventory;
         this.payments = payments;
+        this.outbox = outbox;
         this.clock = clock;
     }
 
@@ -57,6 +66,7 @@ class CancelTransaction {
                     "Free cancellation of CONFIRMED reservation {} found no captured payment to refund",
                     reservation.id());
         }
+        ReservationEvents.append(outbox, clock, reservation, ReservationStatus.CANCELLED, ReservationEvent.CANCELLED);
         return true;
     }
 }

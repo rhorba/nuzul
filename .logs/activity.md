@@ -290,3 +290,29 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-23 12:50] [SHIP] — Story 2.5 rate limiting + exact active-hold cap
 - Summary: feature/2.5-rate-limits @ 3adc33a pushed; PR #12 open, CI green, Sonar gate OK. Coverage 98.6% lines.
 - Status: complete
+
+### [2026-11-23] [CI] — main after PR #12 merge (1f54fb1)
+- Run 45181834615: GREEN — api verify + SonarCloud, web, images build + Trivy + push. Sprint 2 complete (stories 2.1–2.5).
+
+### [2026-11-24 10:00] [UNDERSTAND] — Story 3.1 outbox → Kafka
+- Track: Standard (cross-module: shared infra + reservation + catalog txns; touches DB/messaging)
+- Found: `outbox_event` + `processed_event` already in V1; nothing writes them; no Kafka deps in api/pom.xml; Kafka (apache/kafka 4.4.0, KRaft) already in compose.yaml
+- Events to emit: ReservationHeld/Confirmed/Cancelled/Expired (4 @Transactional sites) → `reservation-events`; hotel/room-type changes → `catalog-events`
+- Env: KAFKA_BOOTSTRAP_SERVERS (new)
+- Blocker noted: Docker Desktop not running (needed for ITs)
+
+### [2026-11-24 10:15] [PLAN] — Story 3.1 outbox → Kafka (🟡) — confirmed by user
+- B1 foundation (deps, V5 attempts/last_error/aggregate_id, OutboxPort MANDATORY tx) · B2 emit reservation+catalog events · B3 relay job (SKIP LOCKED, per-row failure, lag/failed gauges, retention) · B4 IdempotentConsumer + DLT + placeholder consumer · B5 ITs, docs, VERIFY, ship
+- Payloads: ids/status/money-as-string, no guest PII; branch feature/3.1-outbox
+
+### [2026-11-24 10:50] [EXECUTE] — 3.1 Batch 1 foundation done
+- 1.1 spring-boot-starter-kafka (+ testcontainers-kafka, kafka-test); spring.kafka (acks=all, idempotent, 5-10 s timeouts); app.outbox.* + .env.example; KafkaContainer apache/kafka:4.4.0 in TestcontainersConfiguration; app.outbox.enabled=false in test props
+- 1.2 V5__outbox_relay.sql (aggregate_id UUID NOT NULL, attempts CHECK >= 0, last_error); database-nuzul.md §2 updated
+- 1.3 shared/outbox: Aggregate (column→topic), Topics, OutboxPort, JdbcOutbox (MANDATORY tx, Jackson 3 JsonMapper, ::jsonb)
+- Check: compile + test-compile OK; 256/258 unit pass, 2 errors = NuzulApiApplicationTests needs Docker (not running)
+
+### [2026-11-24 11:40] [EXECUTE] — 3.1 Batch 2 emit events done (implementer → spec PASS → quality PASS)
+- ReservationEvent (public, no PII; totalMad plain string) appended in Hold (new only, after reserve), Confirm (after capture; finish now takes Reservation), Cancel (after cancelIf), Expiry (after release); HotelChanged/RoomTypeChanged in catalog admin services (create/update)
+- Quality lows fixed: replay IT bypasses Redis cache to hit DB replay path; HotelAdminService.createdAt from Clock; expiry IT case added
+- Unit: 274 run, 0 fail, 2 errors (NuzulApiApplicationTests — Docker down). OutboxEventsIT (5 tests) compiles, NOT yet run
+- [2026-11-24 12:05] B1+B2 full verify with Docker: 274 unit + 231 IT, 0 failures (OutboxEventsIT green)
