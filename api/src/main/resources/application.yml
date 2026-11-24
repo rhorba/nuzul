@@ -76,7 +76,17 @@ app:
     interval: ${APP_OUTBOX_INTERVAL:PT1S}
     batch-size: ${APP_OUTBOX_BATCH_SIZE:100}
     max-attempts: ${APP_OUTBOX_MAX_ATTEMPTS:10}
+    # A run stops starting sends after this long, so a slow broker cannot keep it past its 1-minute ShedLock lock
+    # (budget + the 15 s send timeout must stay under it; checked at startup).
+    run-budget: ${APP_OUTBOX_RUN_BUDGET:PT30S}
     retention: ${APP_OUTBOX_RETENTION:P7D}
+    # Nightly delete of rows published more than retention ago (Spring cron: sec min hour day month weekday).
+    retention-cron: ${APP_OUTBOX_RETENTION_CRON:0 30 3 * * *}
+  kafka:
+    # Story 3.1: reservation-events and catalog-events are created at startup with these settings. Partitions cap
+    # consumer parallelism (an aggregate's events stay on one partition); replicas must not exceed the broker count.
+    partitions: ${APP_KAFKA_PARTITIONS:3}
+    replicas: ${APP_KAFKA_REPLICAS:1}
   rate-limit:
     # Story 2.5: per-guest token bucket on POST /api/v1/reservations (capacity requests per period, refilled in one go
     # at the end of each period; Redis, fail-open), and a cap on unpaid holds per guest.

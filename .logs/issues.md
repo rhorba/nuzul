@@ -110,3 +110,10 @@
 - Security: pass — Semgrep p/java + p/secrets on changed code: 0 findings; quality review: no critical/high (subject only from JWT, no bypass via path variants, advisory lock no deadlock path)
 - Open lows: advisory-lock wait has no lock_timeout; ActiveHoldCapIT pg_stat_activity barrier counts all lock waiters; interceptor skips non-Jwt principals silently
 - Status: pass
+
+### [2026-11-24 13:10] [REVIEW] — 3.1 B3 relay quality review FAIL (round 1)
+- HIGH: failure classification was a denylist → systemic non-retriable Kafka errors (bootstrap DNS ConfigException, authz) parked healthy rows → fix: allowlist record-level errors only
+- MEDIUM: no per-run time budget → run can outlive ShedLock PT1M, concurrent relays interleave an aggregate → fix: run deadline
+- LOW: markPublished inside send try; "TimeoutException: null" message; created_at = txn start (now()) → clock_timestamp()
+- Carry: metrics gauge scrape can block on exhausted pool (prometheus not exposed yet)
+- Status: sent back to implementer

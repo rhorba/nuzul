@@ -316,3 +316,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Quality lows fixed: replay IT bypasses Redis cache to hit DB replay path; HotelAdminService.createdAt from Clock; expiry IT case added
 - Unit: 274 run, 0 fail, 2 errors (NuzulApiApplicationTests — Docker down). OutboxEventsIT (5 tests) compiles, NOT yet run
 - [2026-11-24 12:05] B1+B2 full verify with Docker: 274 unit + 231 IT, 0 failures (OutboxEventsIT green)
+
+### [2026-11-24 13:45] [EXECUTE] — 3.1 Batch 3 relay done (implementer → spec PASS → quality FAIL r1 → fixes → quality PASS r2)
+- shared/outbox: OutboxRelay (1 txn/run, SKIP LOCKED, sequential send+ack, allowlist poison classification, same-aggregate skip, run-budget PT30S, budget+send+10 s margin < lockAtMostFor PT1M), OutboxRelayJob, OutboxRetentionJob (cron, P7D), OutboxMetrics (outbox.lag.seconds, outbox.failed), OutboxTopicsConfig; JdbcOutbox created_at = clock_timestamp()
+- Orchestrator fix: LOCK_MARGIN 10 s on run-budget check (r2 low)
+- Tests: 295 unit + 237 IT green (implementer verify); Outbox*Test 21/21 after margin fix
+- Carry: gauge scrape may block on exhausted pool (prometheus not exposed yet)
