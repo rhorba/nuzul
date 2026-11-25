@@ -102,3 +102,9 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **Carry:** 2.5 lows (advisory-lock lock_timeout; ActiveHoldCapIT barrier scope; interceptor non-JWT principal); SonarCloud GitHub binding may be broken (auto-config failed) — re-save binding in SonarCloud; Stripe refund Idempotency-Key; reconciliation job; prior lows (twin 410, HoldIT:88, CancelIT REFUND_KEYS); 6.1 seeder guard; OneDrive target/ lock; Docker Desktop must be running for ITs.
 **Update (2026-11-23, end):** PR #12 merged (1f54fb1), main CI green → Sprint 2 complete. Local `main` is current; this log + the main-CI entry in activity.md are uncommitted and go in with the first commit of the next branch.
 **Next session:** start story 3.1 (outbox → Kafka) on `feature/3.1-outbox` from main; Docker Desktop must be running.
+
+### [2026-11-25] SESSION_END (11)
+**Done:** Story 3.1 shipped on PR #13 (CI green, Sonar OK): B4 idempotent consumers (processed_event claim in handler tx, 3 retries → <topic>.DLT same partition, no exception message/stacktrace headers, placeholder notification listener) reviewed (spec r1 gap fixed; quality PASS, M1+4 lows fixed); B5 docs (ADR-4 as built, DB, system design, test strategy). 320 unit + 244 IT, 99.1% lines / 93.0% branches.
+**State:** PR #13 awaiting merge.
+**Next:** merge PR #13, then story 3.2 (next in Sprint 3).
+**Carry:** keep consumer name "notification" in 3.4 (renaming replays topic); gauge scrape may block on exhausted pool; DLT any-partition fallback; 2.5 lows; SonarCloud binding; Stripe refund Idempotency-Key; reconciliation job; prior lows; 6.1 seeder guard; OneDrive target/ lock.

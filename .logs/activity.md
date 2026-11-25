@@ -329,3 +329,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Spec r1 gap: no test for catalog-events.DLT → OutboxTopicsConfigTest. Accepted deviation: DLT any-partition fallback when source partition ≥ configured count
 - Quality: 0 crit/high; M1 DLT exception headers could carry PII (fixed); L2 event-type log injection, L3 control chars, L4 empty payload poison, L5 duplicated partitions default (all fixed)
 - Tests: 30 unit/arch + IdempotentConsumerIT 7/7 green
+
+### [2026-11-25 12:45] [CI] — PR #13 GREEN (run 45596852098): api verify + SonarCloud, web, images + Trivy.
+
+### [2026-11-25 12:45] [SHIP] — Story 3.1 outbox → Kafka with idempotent consumers
+- Summary: feature/3.1-outbox pushed; PR #13 → main, CI green, Sonar gate OK. Coverage 99.1% lines.
+- Status: complete
