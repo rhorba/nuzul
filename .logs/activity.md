@@ -322,3 +322,10 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Orchestrator fix: LOCK_MARGIN 10 s on run-budget check (r2 low)
 - Tests: 295 unit + 237 IT green (implementer verify); Outbox*Test 21/21 after margin fix
 - Carry: gauge scrape may block on exhausted pool (prometheus not exposed yet)
+
+### [2026-11-25 11:50] [EXECUTE] — 3.1 Batch 4 consumer side done (spec FAIL r1 → fix → quality PASS → fixes)
+- shared/outbox: EventHeaders (event-id/event-type shared with relay; type must be [A-Za-z]{1,64}; quoted values truncated + control chars stripped), IdempotentConsumer (processed_event ON CONFLICT DO NOTHING in the handler's tx), KafkaConsumerConfig (3 retries 0.5/1/2 s → <topic>.DLT same partition; Invalid{Header,Payload} not retryable; DLT drops exception message/stacktrace headers — PII), DLT topics for both event topics, ack-mode record; shared app.kafka.partitions default
+- notification: placeholder ReservationEventsListener (logs only; app.notification.listener.enabled, off in tests); payload missing reservationId/status → DLT without claim
+- Spec r1 gap: no test for catalog-events.DLT → OutboxTopicsConfigTest. Accepted deviation: DLT any-partition fallback when source partition ≥ configured count
+- Quality: 0 crit/high; M1 DLT exception headers could carry PII (fixed); L2 event-type log injection, L3 control chars, L4 empty payload poison, L5 duplicated partitions default (all fixed)
+- Tests: 30 unit/arch + IdempotentConsumerIT 7/7 green

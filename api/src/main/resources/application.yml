@@ -38,6 +38,10 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Commit each record's offset once it is handled (or dead-lettered), so a retry or DLT decision applies to that
+      # record alone and a restart never replays records that already succeeded behind a failed one.
+      ack-mode: record
   security:
     oauth2:
       resourceserver:

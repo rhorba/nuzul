@@ -14,11 +14,13 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration(proxyBeanMethods = false)
 class OutboxTopicsConfig {
 
+    /** Partition count of every event topic and its DLT; also read by {@link KafkaConsumerConfig}. */
+    static final String PARTITIONS = "${app.kafka.partitions:3}";
+
     private final int partitions;
     private final int replicas;
 
-    OutboxTopicsConfig(
-            @Value("${app.kafka.partitions:3}") int partitions, @Value("${app.kafka.replicas:1}") int replicas) {
+    OutboxTopicsConfig(@Value(PARTITIONS) int partitions, @Value("${app.kafka.replicas:1}") int replicas) {
         this.partitions = partitions;
         this.replicas = replicas;
     }
@@ -31,6 +33,21 @@ class OutboxTopicsConfig {
     @Bean
     NewTopic catalogEventsTopic() {
         return topic(Topics.CATALOG_EVENTS);
+    }
+
+    /**
+     * Same partition count as its topic: a failed record keeps its partition on the DLT (KafkaConsumerConfig). Both
+     * come from {@code app.kafka.partitions}, so a topic and its DLT must always be resized together (KafkaAdmin only
+     * ever adds partitions); otherwise records from the extra partitions land on any DLT partition.
+     */
+    @Bean
+    NewTopic reservationEventsDeadLetterTopic() {
+        return topic(Topics.deadLetter(Topics.RESERVATION_EVENTS));
+    }
+
+    @Bean
+    NewTopic catalogEventsDeadLetterTopic() {
+        return topic(Topics.deadLetter(Topics.CATALOG_EVENTS));
     }
 
     private NewTopic topic(String name) {

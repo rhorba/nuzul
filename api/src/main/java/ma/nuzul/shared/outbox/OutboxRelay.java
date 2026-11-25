@@ -53,8 +53,8 @@ import org.springframework.transaction.support.TransactionOperations;
 @Component
 class OutboxRelay {
 
-    static final String EVENT_ID_HEADER = "event-id";
-    static final String EVENT_TYPE_HEADER = "event-type";
+    static final String EVENT_ID_HEADER = EventHeaders.EVENT_ID;
+    static final String EVENT_TYPE_HEADER = EventHeaders.EVENT_TYPE;
     static final int MAX_ERROR_LENGTH = 1000;
 
     /** Longer than the producer's delivery.timeout.ms (10 s), so the producer reports its own timeout first. */
