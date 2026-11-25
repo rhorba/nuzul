@@ -108,3 +108,9 @@ CTS plugin installed; fixed push-gate bug (rhorba/CTS branch fix/push-gate-comma
 **State:** PR #13 awaiting merge.
 **Next:** merge PR #13, then story 3.2 (next in Sprint 3).
 **Carry:** keep consumer name "notification" in 3.4 (renaming replays topic); gauge scrape may block on exhausted pool; DLT any-partition fallback; 2.5 lows; SonarCloud binding; Stripe refund Idempotency-Key; reconciliation job; prior lows; 6.1 seeder guard; OneDrive target/ lock.
+
+### [2026-11-25] SESSION_END (12)
+**Done:** Story 3.1 shipped + merged (PR #13, main CI green). Story 3.2 (🟡) started on `feature/3.2-search-index` (local only, not pushed): B1 ES hotels index behind alias (55931c9) and B2 hotel-keyed catalog events + HotelPricesChanged + HotelSnapshots/MinPrices + V6 index (da05f6c), both spec + quality PASS. Owner decisions: ES 9.4.8 (Boot 4.1.2 client), ES health indicator off.
+**State:** branch local, 2 commits ahead of main; no VERIFY/SHIP yet for 3.2.
+**Next:** B3 — search CatalogEventsListener (consumer `search-indexer`, IdempotentConsumer, toggle off in tests; hotelId from payload never the Kafka key; never compare occurredAt; MinPrices.byMonth(ids, LocalDate.now(clock), 12)); POST /api/v1/admin/search/reindex PLATFORM_ADMIN, advisory try-lock → 409 REINDEX_IN_PROGRESS, createIndex → activePage → bulkIndex → switchAliasTo, deleteIndex on failure; while reindex holds the lock the listener also writes to the in-progress index (corrections.md). ITs must call ensureAliasExists() in setup (JVM-wide ES container). Then B4: ITs, docs (database §5 + V6, ADR, test strategy, security role table), VERIFY, push, PR, CI.
+**Carry:** keep consumer name "notification" (3.4); gauge scrape on exhausted pool; DLT any-partition fallback; 2.5 lows; SonarCloud binding; Stripe refund Idempotency-Key; reconciliation job; 6.1 seeder guard; OneDrive target/ lock; Docker VM 7.6 GB is tight (one Postgres/Kafka per cached test context). Docker Desktop must be running for ITs.
