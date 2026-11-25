@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import ma.nuzul.catalog.RoomTypeOwnership;
@@ -30,10 +31,12 @@ class InventoryAdminServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-18T23:30:00Z"), UTC_PLUS_ONE);
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 19);
     private static final String OWNER = "owner-1";
+    private static final UUID HOTEL_ID = UUID.randomUUID();
 
     private final UUID roomTypeId = UUID.randomUUID();
     private final InMemoryInventoryRepository repo = new InMemoryInventoryRepository();
-    private final RoomTypeOwnership ownership = (id, sub) -> id.equals(roomTypeId) && sub.equals(OWNER);
+    private final RoomTypeOwnership ownership =
+            (id, sub) -> id.equals(roomTypeId) && sub.equals(OWNER) ? Optional.of(HOTEL_ID) : Optional.empty();
     private final InventoryAdminService service = new InventoryAdminService(repo, ownership, CLOCK);
 
     private static InventoryChange change(int plusDays, int total) {

@@ -6,18 +6,23 @@ import static ma.nuzul.support.AdminApi.guest;
 import static ma.nuzul.support.AdminApi.json;
 import static ma.nuzul.support.AdminApi.ownerSub;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import ma.nuzul.TestcontainersConfiguration;
+import ma.nuzul.inventory.application.ManageRatesUseCase;
+import ma.nuzul.inventory.domain.RateChange;
 import ma.nuzul.support.AdminApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -45,6 +51,9 @@ class RateBulkIT {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    ManageRatesUseCase rates;
 
     /* Fresh owner subs per test: isolated from other tests and other IT classes, no FK-sensitive cleanup. */
     private final String ownerA = ownerSub("owner-a");
@@ -303,6 +312,81 @@ class RateBulkIT {
 
         mvc.perform(json(put(rates(rt)), body).with(guest())).andExpect(status().isForbidden());
 
+        assertThat(rowCount(rt)).isZero();
+    }
+
+    /** The room type's hotel, as catalog stored it. */
+    private String hotelOf(String roomTypeId) {
+        return jdbc.queryForObject("SELECT hotel_id::text FROM room_type WHERE id = ?::uuid", String.class, roomTypeId);
+    }
+
+    /** The HotelPricesChanged outbox rows of the hotel, oldest first. */
+    private List<Map<String, Object>> priceEvents(String hotelId) {
+        return jdbc.queryForList("""
+                SELECT aggregate, aggregate_id::text AS aggregate_id, payload ->> 'hotelId' AS hotel_id,
+                       payload ->> 'occurredAt' AS occurred_at
+                FROM outbox_event
+                WHERE type = 'HotelPricesChanged' AND aggregate_id = ?::uuid
+                ORDER BY created_at, id
+                """, hotelId);
+    }
+
+    /* Story 3.2: one event per call (not per night), keyed by the hotel so it is ordered with its catalog events. */
+    @Test
+    void eachCallWritesOneHotelPricesChangedEventKeyedByTheHotel() throws Exception {
+        String rt = createRoomType(ownerA);
+        String hotel = hotelOf(rt);
+
+        putOk(rt, ownerA, body(entry(day(1), "500", true), entry(day(2), "600", true), entry(day(3), "700", true)));
+
+        var rows = priceEvents(hotel);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0))
+                .containsEntry("aggregate", "hotel")
+                .containsEntry("aggregate_id", hotel)
+                .containsEntry("hotel_id", hotel);
+        assertThat(rows.get(0).get("occurred_at")).isNotNull();
+
+        putOk(rt, ownerA, body(entry(day(1), "550", true)));
+        assertThat(priceEvents(hotel)).hasSize(2);
+    }
+
+    @Test
+    void refusedCallsWriteNoEvent() throws Exception {
+        String rt = createRoomType(ownerA);
+        String hotel = hotelOf(rt);
+
+        mvc.perform(json(put(rates(rt)), body(entry(day(1), "1", false))).with(admin(ownerB)))
+                .andExpect(status().isNotFound());
+        mvc.perform(json(put(rates(rt)), body(entry(day(180), "1", false))).with(admin(ownerA)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(priceEvents(hotel)).isEmpty();
+    }
+
+    /*
+     * The event is appended before the upsert; a trigger (scoped to this test's room type) makes the upsert fail
+     * after it, and the event must roll back with the rates: both are in setRates' one transaction.
+     */
+    @Test
+    void aFailingUpsertRollsTheEventBack() throws Exception {
+        String rt = createRoomType(ownerA);
+        String hotel = hotelOf(rt);
+        String suffix = rt.replace("-", "");
+        jdbc.execute("CREATE FUNCTION fail_rate_" + suffix + "() RETURNS trigger LANGUAGE plpgsql AS"
+                + " $$ BEGIN RAISE EXCEPTION 'upsert refused by test'; END $$");
+        jdbc.execute("CREATE TRIGGER fail_rate_" + suffix + " BEFORE INSERT OR UPDATE ON rate FOR EACH ROW"
+                + " WHEN (NEW.room_type_id = '" + rt + "'::uuid) EXECUTE FUNCTION fail_rate_" + suffix + "()");
+        try {
+            assertThatThrownBy(() -> rates.setRates(
+                            ownerA, UUID.fromString(rt), List.of(new RateChange(day(1), new BigDecimal("500"), true))))
+                    .isInstanceOf(DataAccessException.class);
+        } finally {
+            jdbc.execute("DROP TRIGGER fail_rate_" + suffix + " ON rate");
+            jdbc.execute("DROP FUNCTION fail_rate_" + suffix + "()");
+        }
+
+        assertThat(priceEvents(hotel)).isEmpty();
         assertThat(rowCount(rt)).isZero();
     }
 }

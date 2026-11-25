@@ -2,7 +2,10 @@ package ma.nuzul.inventory.application;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import ma.nuzul.inventory.domain.RateChange;
 
@@ -23,6 +26,12 @@ public interface RateRepositoryPort {
      * are refundable, and the largest free_cancel_hours among them.
      */
     PricedNights priceNights(UUID roomTypeId, LocalDate checkIn, LocalDate checkOut);
+
+    /**
+     * The lowest price per calendar month over the given room types' nights in [from, toExclusive); months with no
+     * rate are absent.
+     */
+    Map<YearMonth, BigDecimal> minPriceByMonth(Collection<UUID> roomTypeIds, LocalDate from, LocalDate toExclusive);
 
     record PricedNights(int nights, BigDecimal totalMad, boolean allRefundable, int maxFreeCancelHours) {}
 }

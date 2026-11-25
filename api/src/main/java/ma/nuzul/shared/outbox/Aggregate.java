@@ -7,6 +7,10 @@ package ma.nuzul.shared.outbox;
 public enum Aggregate {
     RESERVATION("reservation", Topics.RESERVATION_EVENTS),
     HOTEL("hotel", Topics.CATALOG_EVENTS),
+    /**
+     * Legacy, read only: catalog events are now all keyed by their hotel ({@link #HOTEL}) so one hotel's events stay
+     * ordered on one partition. Kept so rows written with {@code 'room_type'} before that change still relay.
+     */
     ROOM_TYPE("room_type", Topics.CATALOG_EVENTS);
 
     private final String column;

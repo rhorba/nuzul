@@ -303,4 +303,27 @@ class RoomTypeAdminIT {
         assertThat(roomTypeCount(h)).isEqualTo(1);
         assertThat(snapshot(id)).isEqualTo(before);
     }
+
+    /* Story 3.2: catalog events are keyed by hotel, so the search indexer gets one hotel's events in order. */
+    @Test
+    void createAndUpdateEachWriteARoomTypeChangedEventKeyedByTheHotel() throws Exception {
+        String h = createHotel(ownerA);
+        String rt = createRoomType(ownerA, h, DOUBLE_JSON);
+        mvc.perform(json(put(roomTypes(h) + "/" + rt), DOUBLE_JSON).with(admin(ownerA)))
+                .andExpect(status().isOk());
+
+        var rows = jdbc.queryForList("""
+                SELECT aggregate, aggregate_id::text AS aggregate_id, type, payload ->> 'hotelId' AS hotel_id
+                FROM outbox_event
+                WHERE payload ->> 'roomTypeId' = ?
+                ORDER BY created_at, id
+                """, rt);
+        assertThat(rows)
+                .hasSize(2)
+                .allSatisfy(r -> assertThat(r)
+                        .containsEntry("aggregate", "hotel")
+                        .containsEntry("aggregate_id", h)
+                        .containsEntry("type", "RoomTypeChanged")
+                        .containsEntry("hotel_id", h));
+    }
 }

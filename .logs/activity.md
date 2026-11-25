@@ -363,3 +363,11 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Fixes: upsert requireAlias(true); switchAliasTo add + remove_index in one _aliases; deleteIndex (ignoreUnavailable; refuses the live aliased index — orchestrator fix for r2 low); stray-index WARN + addSuppressed; bulk chunks 500, error cap 10; JVM-wide container convention documented
 - Tests: HotelSearchIndexIT 18/18; search unit + Modularity + Hexagonal 16/16; NuzulApiApplicationTests 2/2
 - Owner decisions applied: ES 9.4.8 (compose, CLAUDE.md, README, system design, devops); ES health indicator off
+
+### [2026-11-25 16:20] [EXECUTE] — 3.2 B2 dispatched to implementer (RoomTypeChanged keyed by hotel, HotelPricesChanged in setRates tx, catalog HotelSnapshots find/activePage, inventory MinPrices.byMonth)
+
+### [2026-11-25 17:20] [EXECUTE] — 3.2 B2 done (spec PASS, quality PASS)
+- RoomTypeChanged keyed by hotel (ROOM_TYPE kept legacy-readable); HotelPricesChanged in setRates tx (hotelOfOwned owner-scoped, same 404); catalog HotelSnapshots find/activePage (keyset, 2 queries); inventory MinPrices.byMonth (one GROUP BY query)
+- Quality fixes (orchestrator): M1 V6 index room_type(hotel_id); L2 comments: order not load-bearing (append-time vs commit-time); L4 date_trunc on ::timestamp (TZ-free); L5 removed duplicate existsOwned/isOwnedBy override
+- Carry to B3: consumer takes hotelId from payload (legacy room_type-keyed rows), never compares occurredAt; MinPrices "today" from shared Clock (Africa/Casablanca)
+- Tests: 335 unit + 141 IT (6 affected suites) green

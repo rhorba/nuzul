@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Every operation first loads the parent hotel through the owner-scoped finder (HOTEL_NOT_FOUND otherwise), then
  * reads room types through finders that are owner-scoped again in SQL. Every write appends a {@code RoomTypeChanged}
- * event in the same transaction.
+ * event in the same transaction, keyed by the HOTEL (not the room type): the search indexer rebuilds one document per
+ * hotel, so a hotel's catalog events share one Kafka partition. Order is still not load-bearing: the indexer re-reads
+ * the hotel's current state on every event, whatever arrives last.
  */
 @Service
 @Transactional
@@ -62,8 +64,8 @@ class RoomTypeAdminService implements ManageRoomTypesUseCase {
     /** Appends the event for a room type that was just saved, and hands it back. */
     private RoomType changed(RoomType saved) {
         outbox.append(
-                Aggregate.ROOM_TYPE,
-                saved.id(),
+                Aggregate.HOTEL,
+                saved.hotelId(),
                 RoomTypeChanged.TYPE,
                 new RoomTypeChanged(saved.id(), saved.hotelId(), Instant.now(clock)));
         return saved;

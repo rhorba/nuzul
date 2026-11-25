@@ -144,7 +144,7 @@ class RoomTypeAdminServiceTest {
         service.update("owner-a", h, r.id(), details("Twin", 2));
 
         var expected = new RecordingOutbox.Event(
-                Aggregate.ROOM_TYPE, r.id(), RoomTypeChanged.TYPE, new RoomTypeChanged(r.id(), h, NOW));
+                Aggregate.HOTEL, h, RoomTypeChanged.TYPE, new RoomTypeChanged(r.id(), h, NOW));
         assertThat(outbox.events).containsExactly(expected, expected);
     }
 
