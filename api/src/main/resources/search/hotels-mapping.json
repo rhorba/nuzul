@@ -1,0 +1,31 @@
+{
+  "mappings": {
+    "dynamic": "strict",
+    "_meta": {
+      "description": "Nuzul hotel search projection (story 3.2). Rebuilt from Postgres by reindex; never authoritative.",
+      "minPriceByMonth": "One scaled_float per yyyy-MM key (via the month_prices dynamic template) so a range filter on minPriceByMonth.2026-12 compares numbers. flattened would index values as keywords and compare them as strings."
+    },
+    "dynamic_templates": [
+      {
+        "month_prices": {
+          "path_match": "minPriceByMonth.*",
+          "match_pattern": "regex",
+          "match": "^[0-9]{4}-[0-9]{2}$",
+          "mapping": { "type": "scaled_float", "scaling_factor": 100 }
+        }
+      }
+    ],
+    "properties": {
+      "id": { "type": "keyword" },
+      "name": {
+        "type": "text",
+        "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
+      },
+      "city": { "type": "keyword" },
+      "location": { "type": "geo_point" },
+      "stars": { "type": "byte" },
+      "amenities": { "type": "keyword" },
+      "minPriceByMonth": { "type": "object", "dynamic": true }
+    }
+  }
+}

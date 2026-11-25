@@ -42,6 +42,14 @@ spring:
       # Commit each record's offset once it is handled (or dead-lettered), so a retry or DLT decision applies to that
       # record alone and a restart never replays records that already succeeded behind a failed one.
       ack-mode: record
+  elasticsearch:
+    # Story 3.2: hotel search projection (never authoritative). Short timeouts: an ES outage must cost a search request
+    # or an indexer retry a few seconds at most, never block bookings.
+    uris: ${ES_URL:http://localhost:9200}
+    username: ${ES_USER:}
+    password: ${ES_PASSWORD:}
+    connection-timeout: 2s
+    socket-timeout: 5s
   security:
     oauth2:
       resourceserver:
@@ -53,6 +61,10 @@ management:
   health:
     redis:
       # Redis is a fail-open cache (idempotency replays): the API works without it, so it must not turn health DOWN.
+      enabled: false
+    elasticsearch:
+      # Elasticsearch is a rebuildable search projection, never authoritative: bookings work without it, so it must not
+      # turn health DOWN (story 3.2).
       enabled: false
   endpoints:
     web:
@@ -86,6 +98,11 @@ app:
     retention: ${APP_OUTBOX_RETENTION:P7D}
     # Nightly delete of rows published more than retention ago (Spring cron: sec min hour day month weekday).
     retention-cron: ${APP_OUTBOX_RETENTION_CRON:0 30 3 * * *}
+  search:
+    # Story 3.2: searches and live writes go through this alias; reindex builds <alias>-<timestamp> and swaps it in.
+    alias: ${APP_SEARCH_ALIAS:hotels}
+    # Create the index and alias at startup when missing. An unreachable cluster only logs a WARN.
+    bootstrap-enabled: ${APP_SEARCH_BOOTSTRAP_ENABLED:true}
   kafka:
     # Story 3.1: reservation-events and catalog-events are created at startup with these settings. Partitions cap
     # consumer parallelism (an aggregate's events stay on one partition); replicas must not exceed the broker count.

@@ -335,3 +335,31 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-25 12:45] [SHIP] — Story 3.1 outbox → Kafka with idempotent consumers
 - Summary: feature/3.1-outbox pushed; PR #13 → main, CI green, Sonar gate OK. Coverage 99.1% lines.
 - Status: complete
+
+### [2026-11-25 13:00] [CI] — PR #13 GREEN on logs commit 79ea579 (run 45598237971). Entry uncommitted; goes in with the next branch.
+
+### [2026-11-25 13:20] [UNDERSTAND] — Story 3.2 ES index + indexer + reindex
+- Track: Standard (new ES adapter, Kafka consumer, admin endpoint, touches inventory events)
+- Found: ES 8.19 in compose; ES_URL/ES_USER/ES_PASSWORD already in .env.example (no new env vars); search/ module empty; PLATFORM_ADMIN role in realm; index spec database §5
+- Gaps: rate bulk updates emit no event (min price stale); RoomTypeChanged keyed by roomTypeId → one hotel's updates across partitions (out-of-order re-read/write)
+
+### [2026-11-25 13:25] [BRAINSTORM] — Story 3.2 options presented (🟢 single index / 🟡 +HotelPricesChanged, hotel-keyed catalog events, alias-swap reindex / 🔴 +async job, external versioning); awaiting pick, recommended 🟡
+
+### [2026-11-25 13:30] [CI] — main after PR #13 merge (bf55591), run 45599782727: GREEN (api verify + Sonar, web, images + Trivy + push).
+
+### [2026-11-25 13:40] [PLAN] — Story 3.2 (🟡) — awaiting confirmation
+- HANDOFF Orchestrator → Scrum Master: 🟡 chosen; need batches.
+- B1 index foundation (ES client, Testcontainer, mapping, HotelSearchIndex alias ops) · B2 events (RoomTypeChanged keyed by hotel, HotelPricesChanged, HotelSnapshots/MinPrices APIs) · B3 indexer listener + reindex endpoint (advisory try-lock → 409) · B4 ITs, docs, VERIFY, ship
+- Accepted limit: edits during a reindex may miss the new index until the next event
+
+### [2026-11-25 13:50] [PLAN] — Story 3.2 confirmed by user ("go"); branch feature/3.2-search-index from main @ bf55591
+### [2026-11-25 13:50] [EXECUTE] — 3.2 B1 dispatched to implementer (ES client, Testcontainer, mapping, HotelSearchIndex alias ops, non-fatal bootstrap)
+
+### [2026-11-25 15:30] [EXECUTE] — 3.2 B1 implemented; spec PASS; quality FAIL r1
+- Implementer: ES starter (client 9.4.8), JVM-wide ES 9.4.8 test container, strict hotels mapping (minPriceByMonth yyyy-MM → scaled_float), HotelDocument, HotelSearchIndex port + ES adapter (alias, is_write_index race-safe), non-fatal bootstrap; 331 unit + 254 IT green
+- Quality r1: HIGH upsert without alias auto-creates concrete `hotels` index (permanent breakage) → requireAlias; MEDIUM non-atomic old-index delete → remove_index in same _aliases + deleteIndex port; LOWs: orphan WARN, bulk chunking 500, missing ITs, shared-container doc. Sent back to implementer.
+
+### [2026-11-25 16:10] [EXECUTE] — 3.2 B1 done (quality r2 PASS)
+- Fixes: upsert requireAlias(true); switchAliasTo add + remove_index in one _aliases; deleteIndex (ignoreUnavailable; refuses the live aliased index — orchestrator fix for r2 low); stray-index WARN + addSuppressed; bulk chunks 500, error cap 10; JVM-wide container convention documented
+- Tests: HotelSearchIndexIT 18/18; search unit + Modularity + Hexagonal 16/16; NuzulApiApplicationTests 2/2
+- Owner decisions applied: ES 9.4.8 (compose, CLAUDE.md, README, system design, devops); ES health indicator off

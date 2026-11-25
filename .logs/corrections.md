@@ -37,3 +37,6 @@
 - HIGH: concurrent cancels (or a cancel overlapping confirm's refund) could both call provider.refund for one claimed refund. Exactly-once from our side is impossible outside a tx; fixed the standard way: PaymentPort.refund takes a required idempotency key ("refund-" + payment id), written into its contract; fake + stand-ins dedupe; CancelIT asserts distinct refund keys.
 - MEDIUM: free cancel with no captured payment now logs ERROR. Added CancelIT cancel-during-charge race (cancel wins → confirm 409 → REFUNDED). DST unit test (America/Santiago midnight gap).
 - LOW: V3 backfill sets free_cancel_until only for refundable rows; zone hard-code documented. Carry to 2.4: expiry must process one reservation per tx (reservation row → its inventory), never batch-lock several reservation rows.
+
+### [2026-11-25] [CORRECTION] — 3.2 B3 reindex must not lose live writes
+- Quality review of B1 (M3): listener writes during a reindex go to the old index and are dropped at the swap. B3 plan change: while the reindex holds its advisory lock, the listener also writes to the in-progress index (or reindex re-applies changes after swap). Replaces the "accepted limit" in the 3.2 plan.

@@ -28,7 +28,7 @@ services:
       retries: 20
 
   elasticsearch:
-    image: elasticsearch:8.19.25
+    image: elasticsearch:9.4.8
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"

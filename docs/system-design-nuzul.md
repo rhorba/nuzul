@@ -174,7 +174,7 @@ Errors use RFC 9457 `application/problem+json` with a stable `code`.
 | Store | Holds | Why |
 |---|---|---|
 | **PostgreSQL 16** | Hotels, inventory, rates, reservations, payments, outbox | ACID, row locks and CHECK constraints: the guard above needs them |
-| **Elasticsearch 8** | A `hotels` search projection (city, geo, stars, amenities, min price per month) | Full-text, filters and geo at 1 k rps; Postgres stays free for writes |
+| **Elasticsearch 9** | A `hotels` search projection (city, geo, stars, amenities, min price per month) | Full-text, filters and geo at 1 k rps; Postgres stays free for writes |
 | **Redis 7** | Idempotency keys, hotel-page cache, rate limiting (Bucket4j) | Low latency, TTLs |
 | **Kafka** | `reservation-events`, `catalog-events` | Decouples search indexing and email from the booking transaction |
 | **S3 + CloudFront** | Hotel photos | Object storage and CDN; the app never proxies bytes |
