@@ -117,3 +117,9 @@
 - LOW: markPublished inside send try; "TimeoutException: null" message; created_at = txn start (now()) → clock_timestamp()
 - Carry: metrics gauge scrape can block on exhausted pool (prometheus not exposed yet)
 - Status: sent back to implementer
+
+### [2026-11-25 12:20] [VERIFY] — Story 3.1 outbox → Kafka (relay + idempotent consumers)
+- Tests: 320 unit + 244 IT passed / 0 failed (full ./mvnw verify, BUILD SUCCESS; OutboxEventsIT, OutboxRelayIT, IdempotentConsumerIT, all 5 release gates green)
+- Security: pass — Semgrep p/java + p/secrets on 31 changed main files: 0 findings; B2/B3/B4 quality reviews: no open critical/high; DLT exception message/stacktrace headers excluded (PII); event payloads carry no guest PII
+- Open lows: gauge scrape may block on an exhausted pool (prometheus not exposed yet); DLT any-partition fallback (accepted deviation)
+- Status: pass

@@ -15,3 +15,4 @@
 - [2026-11-21] Coverage: 99.2% (line, unit+IT merged; branch 91.8%) — story 2.3
 - [2026-11-22] Coverage: 99.4% (line, unit+IT merged; branch 92.1%) — story 2.4
 - [2026-11-23] Coverage: 98% (story 2.5, JaCoCo merged unit+IT: lines 98.6%, branches 91.9%)
+- [2026-11-25] Coverage: 99.1% (story 3.1, JaCoCo merged unit+IT: lines 99.1%, branches 93.0%)

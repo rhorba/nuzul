@@ -26,6 +26,11 @@ Flyway owns the schema; `ddl-auto=validate`.
 An `outbox_event` row is written in the business transaction, and a `@Scheduled` poller publishes and marks it with `FOR UPDATE SKIP LOCKED`.
 Consumers are idempotent: they record each processed event id.
 
+*As built (story 3.1):*
+- **Writing.** `OutboxPort.append` requires an open transaction (`MANDATORY`). Payloads carry ids, status and money as a string, never guest PII.
+- **Relay.** `OutboxRelay` runs under ShedLock in one transaction per run. It sends rows in order and acknowledges each one, keyed by `aggregate_id` so one aggregate's events stay ordered. A row that fails for a permanent reason is parked after `app.outbox.max-attempts`, and the rows of other aggregates keep flowing. Published rows are deleted after `app.outbox.retention`. Every record has an `event-id` header (the row id) and an `event-type` header.
+- **Consuming.** `IdempotentConsumer.handleOnce` inserts `(consumer, event_id)` into `processed_event` (`ON CONFLICT DO NOTHING`) in the same transaction as the handler, so a handler failure rolls the claim back. The single `DefaultErrorHandler` retries 3 times (0.5, 1, 2 s), then publishes to `<topic>.DLT` on the same partition. A bad header or payload goes to the DLT at once. DLT records keep only the exception class names: messages and stack traces are dropped because they can carry PII. Offsets are committed per record. The consumer name is also the consumer group, so it must never be renamed (a new group replays the whole topic).
+
 ### ADR-5: Auth through Keycloak; the API is a resource server
 The Angular app uses the OIDC code flow with PKCE (angular-auth-oidc-client). The API validates JWTs and maps realm roles to authorities.
 Hotel-admin scope is checked in the DB (`hotel.owner_sub = jwt.sub`), never from a claim alone.

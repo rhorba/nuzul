@@ -63,6 +63,8 @@ CREATE INDEX outbox_unpublished ON outbox_event (created_at) WHERE published_at 
 ALTER TABLE outbox_event ADD COLUMN aggregate_id UUID NOT NULL,
   ADD COLUMN attempts INT NOT NULL DEFAULT 0 CHECK (attempts >= 0), ADD COLUMN last_error TEXT;
 
+-- Consumer dedup (story 3.1): IdempotentConsumer inserts (consumer, event_id) ON CONFLICT DO NOTHING in the handler's
+-- transaction; a handler failure rolls the claim back, so the retry is handled.
 CREATE TABLE processed_event (consumer TEXT, event_id UUID, PRIMARY KEY (consumer, event_id));
 ```
 

@@ -40,5 +40,10 @@ A new resource is not done until it has a row here.
 - `RateLimitIT`: per-guest bucket on reservation POSTs gives 429 `RATE_LIMITED` with `Retry-After`. Buckets are per guest, 401/403 don't consume tokens, and the limiter fails open when Redis is down.
 - `ActiveHoldCapIT`: the 6th active hold gets 429 `TOO_MANY_ACTIVE_HOLDS`. Expired and cancelled holds don't count, and replays are never rejected. 10 parallel holds against 4 active ones give exactly 1 success.
 
+## Event delivery (story 3.1)
+- `OutboxEventsIT`: hold, cancel and expiry each write exactly one event in their own transaction, with no personal data. A replayed key writes none, and a sold-out hold rolls its event back with the reservation.
+- `OutboxRelayIT`: records carry their key and headers, and rows are marked published. One aggregate's events arrive in order. A record that is too large is parked without blocking the rows behind it. Two concurrent relays publish every event exactly once. Also covers the lag/parked gauges and retention.
+- `IdempotentConsumerIT`: a duplicate is handled once. Transient failures are retried, then the record is dead-lettered with its original value and headers (no exception message or stack trace) and no claim row. A missing event id or a tombstone goes to the DLT with no retry. A held reservation reaches the notification consumer end to end through the relay.
+
 ## Coverage
 JaCoCo ≥ 80 % lines on `api` (CTS rule 6), enforced by the Sonar quality gate, which also requires 0 new bugs or vulnerabilities and ≤ 3 % duplication.
