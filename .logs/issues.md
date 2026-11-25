@@ -110,3 +110,16 @@
 - Security: pass — Semgrep p/java + p/secrets on changed code: 0 findings; quality review: no critical/high (subject only from JWT, no bypass via path variants, advisory lock no deadlock path)
 - Open lows: advisory-lock wait has no lock_timeout; ActiveHoldCapIT pg_stat_activity barrier counts all lock waiters; interceptor skips non-Jwt principals silently
 - Status: pass
+
+### [2026-11-24 13:10] [REVIEW] — 3.1 B3 relay quality review FAIL (round 1)
+- HIGH: failure classification was a denylist → systemic non-retriable Kafka errors (bootstrap DNS ConfigException, authz) parked healthy rows → fix: allowlist record-level errors only
+- MEDIUM: no per-run time budget → run can outlive ShedLock PT1M, concurrent relays interleave an aggregate → fix: run deadline
+- LOW: markPublished inside send try; "TimeoutException: null" message; created_at = txn start (now()) → clock_timestamp()
+- Carry: metrics gauge scrape can block on exhausted pool (prometheus not exposed yet)
+- Status: sent back to implementer
+
+### [2026-11-25 12:20] [VERIFY] — Story 3.1 outbox → Kafka (relay + idempotent consumers)
+- Tests: 320 unit + 244 IT passed / 0 failed (full ./mvnw verify, BUILD SUCCESS; OutboxEventsIT, OutboxRelayIT, IdempotentConsumerIT, all 5 release gates green)
+- Security: pass — Semgrep p/java + p/secrets on 31 changed main files: 0 findings; B2/B3/B4 quality reviews: no open critical/high; DLT exception message/stacktrace headers excluded (PII); event payloads carry no guest PII
+- Open lows: gauge scrape may block on an exhausted pool (prometheus not exposed yet); DLT any-partition fallback (accepted deviation)
+- Status: pass

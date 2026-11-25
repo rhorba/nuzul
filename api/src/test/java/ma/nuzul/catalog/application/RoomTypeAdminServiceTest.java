@@ -3,19 +3,29 @@ package ma.nuzul.catalog.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import ma.nuzul.catalog.RoomTypeChanged;
 import ma.nuzul.catalog.domain.RoomType;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 
 /** Room-type use-case rules against in-memory ports; no Spring. */
 class RoomTypeAdminServiceTest {
 
+    private static final Instant NOW = Instant.parse("2026-11-24T09:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+
     private final InMemoryHotelRepository hotelRepo = new InMemoryHotelRepository();
+    private final RecordingOutbox outbox = new RecordingOutbox();
     private final InMemoryRoomTypeRepository roomTypeRepo = new InMemoryRoomTypeRepository(hotelRepo);
-    private final HotelAdminService hotelService = new HotelAdminService(hotelRepo);
-    private final RoomTypeAdminService service = new RoomTypeAdminService(hotelRepo, roomTypeRepo);
+    private final HotelAdminService hotelService = new HotelAdminService(hotelRepo, outbox, CLOCK);
+    private final RoomTypeAdminService service = new RoomTypeAdminService(hotelRepo, roomTypeRepo, outbox, CLOCK);
 
     private UUID hotelOf(String owner) {
         return hotelService
@@ -123,5 +133,35 @@ class RoomTypeAdminServiceTest {
                 .extracting(RoomTypeAdminServiceTest::codeOf)
                 .isEqualTo("ROOM_TYPE_NOT_FOUND");
         assertThat(roomTypeRepo.rows.get(r.id())).isEqualTo(r);
+    }
+
+    @Test
+    void createAndUpdateEachAppendOneRoomTypeChangedEvent() {
+        UUID h = hotelOf("owner-a");
+        outbox.events.clear(); // the hotel's own HotelChanged
+
+        RoomType r = service.create("owner-a", h, details("Double", 2));
+        service.update("owner-a", h, r.id(), details("Twin", 2));
+
+        var expected = new RecordingOutbox.Event(
+                Aggregate.ROOM_TYPE, r.id(), RoomTypeChanged.TYPE, new RoomTypeChanged(r.id(), h, NOW));
+        assertThat(outbox.events).containsExactly(expected, expected);
+    }
+
+    @Test
+    void readsAndRefusedWritesAppendNothing() {
+        UUID h = hotelOf("owner-a");
+        RoomType r = service.create("owner-a", h, details("Double", 2));
+        outbox.events.clear();
+
+        service.list("owner-a", h);
+        assertThatThrownBy(() -> service.create("owner-b", h, details("Double", 2)))
+                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> service.update("owner-b", h, r.id(), details("Hijacked", 9)))
+                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> service.update("owner-a", h, UUID.randomUUID(), details("Ghost", 2)))
+                .isInstanceOf(NotFoundException.class);
+
+        assertThat(outbox.events).isEmpty();
     }
 }

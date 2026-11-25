@@ -4,7 +4,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import ma.nuzul.payment.Payments;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.domain.Reservation;
+import ma.nuzul.reservation.domain.ReservationStatus;
+import ma.nuzul.shared.outbox.OutboxPort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +20,13 @@ class ConfirmTransactions {
 
     private final ReservationRepositoryPort reservations;
     private final Payments payments;
+    private final OutboxPort outbox;
     private final Clock clock;
 
-    ConfirmTransactions(ReservationRepositoryPort reservations, Payments payments, Clock clock) {
+    ConfirmTransactions(ReservationRepositoryPort reservations, Payments payments, OutboxPort outbox, Clock clock) {
         this.reservations = reservations;
         this.payments = payments;
+        this.outbox = outbox;
         this.clock = clock;
     }
 
@@ -34,18 +39,22 @@ class ConfirmTransactions {
     /**
      * Confirms the reservation if it is still HELD and unexpired now (read inside this transaction), and captures the
      * payment in the same commit. Nothing is written when either step fails: a payment already claimed by a refund
-     * rolls the confirmation back, so a refunded payment never pays for a CONFIRMED reservation.
+     * rolls the confirmation back, so a refunded payment never pays for a CONFIRMED reservation. The
+     * {@code ReservationConfirmed} event is appended only after both succeeded, in the same commit.
      *
+     * @param reservation the reservation as the caller read it: its id, and the stay facts the event carries (none of
+     *     them change after the hold)
      * @return true when this call confirmed it
      */
     @Transactional
-    boolean finish(UUID reservationId, UUID paymentId, String providerRef) {
-        if (!reservations.confirmIfHeld(reservationId, Instant.now(clock))) {
+    boolean finish(Reservation reservation, UUID paymentId, String providerRef) {
+        if (!reservations.confirmIfHeld(reservation.id(), Instant.now(clock))) {
             return false;
         }
         if (!payments.capture(paymentId, providerRef)) {
             throw new CaptureLost(); // rolls the CONFIRMED back
         }
+        ReservationEvents.append(outbox, clock, reservation, ReservationStatus.CONFIRMED, ReservationEvent.CONFIRMED);
         return true;
     }
 

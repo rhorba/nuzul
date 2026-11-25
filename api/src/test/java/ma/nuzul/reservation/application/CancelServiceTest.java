@@ -19,6 +19,7 @@ import java.util.UUID;
 import ma.nuzul.inventory.InventoryReservations;
 import ma.nuzul.payment.ChargeResult;
 import ma.nuzul.payment.Payments;
+import ma.nuzul.reservation.ReservationEvent;
 import ma.nuzul.reservation.application.CancelReservationUseCase.Cancelled;
 import ma.nuzul.reservation.application.CancelReservationUseCase.RefundStatus;
 import ma.nuzul.reservation.domain.CancellationPolicy;
@@ -29,6 +30,8 @@ import ma.nuzul.shared.error.ConflictException;
 import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.GoneException;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 
 /** Every cancel branch against in-memory reservations, inventory and payments; no Spring, no transactions. */
@@ -43,6 +46,7 @@ class CancelServiceTest {
 
     private final Map<UUID, Reservation> rows = new HashMap<>();
     private final List<String> calls = new ArrayList<>();
+    private final RecordingOutbox outbox = new RecordingOutbox();
     private final UUID paymentId = UUID.randomUUID();
     /** Status changes another actor makes just before our conditional update (simulates lost races). */
     private final Deque<ReservationStatus> raceBeforeUpdate = new ArrayDeque<>();
@@ -174,8 +178,8 @@ class CancelServiceTest {
         }
     };
 
-    private final CancelService service =
-            new CancelService(reservations, new CancelTransaction(reservations, inventory, payments, CLOCK), payments);
+    private final CancelService service = new CancelService(
+            reservations, new CancelTransaction(reservations, inventory, payments, outbox, CLOCK), payments);
 
     private static Reservation withStatus(Reservation r, ReservationStatus status) {
         return new Reservation(
@@ -232,6 +236,36 @@ class CancelServiceTest {
         assertThat(c).isEqualTo(new Cancelled(id, ReservationStatus.CANCELLED, RefundStatus.COMPLETED, TOTAL));
         assertThat(calls).containsExactly("release 2", "claim", "provider refund");
         assertThat(rows.get(id).status()).isEqualTo(ReservationStatus.CANCELLED);
+    }
+
+    @Test
+    void aWonCancelAppendsOneReservationCancelledEventWithoutPersonalData() {
+        UUID id = reservation(ReservationStatus.CONFIRMED, FREE);
+        Reservation r = rows.get(id);
+
+        service.cancel(GUEST, id);
+
+        assertThat(outbox.events).hasSize(1);
+        RecordingOutbox.Event e = outbox.events.get(0);
+        assertThat(e.aggregate()).isEqualTo(Aggregate.RESERVATION);
+        assertThat(e.aggregateId()).isEqualTo(id);
+        assertThat(e.type()).isEqualTo(ReservationEvent.CANCELLED);
+        assertThat(e.payload())
+                .isEqualTo(new ReservationEvent(
+                        id, r.hotelId(), r.roomTypeId(), r.checkIn(), r.checkOut(), 2, "CANCELLED", "1400.00", NOW));
+    }
+
+    @Test
+    void aCancelThatLostOrFoundItAlreadyCancelledAppendsNothing() {
+        UUID cancelledMeanwhile = reservation(ReservationStatus.CONFIRMED, FREE);
+        raceBeforeUpdate.add(ReservationStatus.CANCELLED);
+        service.cancel(GUEST, cancelledMeanwhile);
+        assertThat(outbox.events).as("the winner wrote its own event").isEmpty();
+
+        UUID id = reservation(ReservationStatus.HELD, FREE);
+        service.cancel(GUEST, id);
+        service.cancel(GUEST, id); // already CANCELLED: answered without a transaction
+        assertThat(outbox.types()).containsExactly(ReservationEvent.CANCELLED);
     }
 
     @Test
@@ -309,6 +343,7 @@ class CancelServiceTest {
 
         assertThat(e).isInstanceOf(ConflictException.class);
         assertThat(e.code()).isEqualTo(CancelService.CONCURRENT_UPDATE);
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test

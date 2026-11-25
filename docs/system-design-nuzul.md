@@ -54,7 +54,7 @@ Reservation(id, guest_sub, hotel_id, room_type_id, check_in, check_out, rooms,
             status HELD|CONFIRMED|CANCELLED|EXPIRED, total_mad, hold_expires_at,
             idempotency_key UNIQUE(guest_sub, idempotency_key), version)
 Payment(id, reservation_id, provider_ref, status, amount_mad)
-OutboxEvent(id, aggregate, type, payload JSONB, created_at, published_at)
+OutboxEvent(id, aggregate, aggregate_id, type, payload JSONB, created_at, published_at, attempts, last_error)
 ```
 **Inventory is counted per night, per room type**, the way Booking.com does it, not per physical room. Physical room assignment happens at the front desk and is out of scope.
 

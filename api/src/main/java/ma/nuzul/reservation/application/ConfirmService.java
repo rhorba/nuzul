@@ -78,7 +78,7 @@ class ConfirmService implements ConfirmReservationUseCase {
         if (!(result instanceof ChargeResult.Approved approved)) {
             throw new PaymentRequiredException(PAYMENT_FAILED, "The payment was declined; the hold is still yours");
         }
-        if (finish(reservationId, payment, approved)) {
+        if (finish(reservation, payment, approved)) {
             return confirmed(reservation);
         }
         // Not confirmed by this call: refund, unless a concurrent confirm sharing this payment captured it first.
@@ -92,9 +92,9 @@ class ConfirmService implements ConfirmReservationUseCase {
         throw expired();
     }
 
-    private boolean finish(UUID reservationId, Payments.Active payment, ChargeResult.Approved approved) {
+    private boolean finish(Reservation reservation, Payments.Active payment, ChargeResult.Approved approved) {
         try {
-            return transactions.finish(reservationId, payment.paymentId(), approved.providerRef());
+            return transactions.finish(reservation, payment.paymentId(), approved.providerRef());
         } catch (ConfirmTransactions.CaptureLost e) {
             return false; // rolled back: the refund that claimed the payment decides below
         }

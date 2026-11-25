@@ -4,18 +4,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import ma.nuzul.catalog.HotelChanged;
 import ma.nuzul.catalog.domain.Hotel;
 import ma.nuzul.catalog.domain.HotelStatus;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 
 /** Use-case rules against an in-memory port; no Spring. */
 class HotelAdminServiceTest {
 
+    private static final Instant NOW = Instant.parse("2026-11-24T09:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+
     private final InMemoryHotelRepository repo = new InMemoryHotelRepository();
-    private final HotelAdminService service = new HotelAdminService(repo);
+    private final RecordingOutbox outbox = new RecordingOutbox();
+    private final HotelAdminService service = new HotelAdminService(repo, outbox, CLOCK);
 
     private static HotelDetails details(String name) {
         return new HotelDetails(
@@ -29,7 +39,7 @@ class HotelAdminServiceTest {
         assertThat(h.id()).isNotNull();
         assertThat(h.ownerSub()).isEqualTo("owner-a");
         assertThat(h.status()).isEqualTo(HotelStatus.ACTIVE);
-        assertThat(h.createdAt()).isNotNull();
+        assertThat(h.createdAt()).isEqualTo(NOW);
         assertThat(h.amenities()).containsExactly("wifi");
         assertThat(repo.rows).containsKey(h.id());
     }
@@ -87,5 +97,31 @@ class HotelAdminServiceTest {
         assertThat(page.total()).isEqualTo(2);
         assertThat(page.page()).isZero();
         assertThat(page.size()).isEqualTo(20);
+    }
+
+    @Test
+    void createAndUpdateEachAppendOneHotelChangedEvent() {
+        Hotel h = service.create("owner-a", details("Riad A"));
+        service.update("owner-a", h.id(), details("Riad A2"), HotelStatus.INACTIVE);
+
+        assertThat(outbox.events)
+                .containsExactly(
+                        new RecordingOutbox.Event(
+                                Aggregate.HOTEL, h.id(), HotelChanged.TYPE, new HotelChanged(h.id(), NOW)),
+                        new RecordingOutbox.Event(
+                                Aggregate.HOTEL, h.id(), HotelChanged.TYPE, new HotelChanged(h.id(), NOW)));
+    }
+
+    @Test
+    void readsAndRefusedUpdatesAppendNothing() {
+        Hotel h = service.create("owner-a", details("Riad A"));
+        outbox.events.clear();
+
+        service.get("owner-a", h.id());
+        service.list("owner-a", 0, 20);
+        assertThatThrownBy(() -> service.update("owner-b", h.id(), details("Hijacked"), HotelStatus.INACTIVE))
+                .isInstanceOf(NotFoundException.class);
+
+        assertThat(outbox.events).isEmpty();
     }
 }

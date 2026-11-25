@@ -58,7 +58,13 @@ CREATE TABLE shedlock (name VARCHAR(64) PRIMARY KEY, lock_until TIMESTAMPTZ NOT 
 CREATE TABLE outbox_event (id UUID PRIMARY KEY, aggregate TEXT NOT NULL, type TEXT NOT NULL,
   payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), published_at TIMESTAMPTZ);
 CREATE INDEX outbox_unpublished ON outbox_event (created_at) WHERE published_at IS NULL;
+-- V5 (story 3.1): relay bookkeeping. aggregate_id = Kafka key (per-aggregate order); a row failing for a
+-- non-retriable reason is parked at app.outbox.max-attempts; published rows are deleted after app.outbox.retention.
+ALTER TABLE outbox_event ADD COLUMN aggregate_id UUID NOT NULL,
+  ADD COLUMN attempts INT NOT NULL DEFAULT 0 CHECK (attempts >= 0), ADD COLUMN last_error TEXT;
 
+-- Consumer dedup (story 3.1): IdempotentConsumer inserts (consumer, event_id) ON CONFLICT DO NOTHING in the handler's
+-- transaction; a handler failure rolls the claim back, so the retry is handled.
 CREATE TABLE processed_event (consumer TEXT, event_id UUID, PRIMARY KEY (consumer, event_id));
 ```
 

@@ -290,3 +290,48 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-23 12:50] [SHIP] — Story 2.5 rate limiting + exact active-hold cap
 - Summary: feature/2.5-rate-limits @ 3adc33a pushed; PR #12 open, CI green, Sonar gate OK. Coverage 98.6% lines.
 - Status: complete
+
+### [2026-11-23] [CI] — main after PR #12 merge (1f54fb1)
+- Run 45181834615: GREEN — api verify + SonarCloud, web, images build + Trivy + push. Sprint 2 complete (stories 2.1–2.5).
+
+### [2026-11-24 10:00] [UNDERSTAND] — Story 3.1 outbox → Kafka
+- Track: Standard (cross-module: shared infra + reservation + catalog txns; touches DB/messaging)
+- Found: `outbox_event` + `processed_event` already in V1; nothing writes them; no Kafka deps in api/pom.xml; Kafka (apache/kafka 4.4.0, KRaft) already in compose.yaml
+- Events to emit: ReservationHeld/Confirmed/Cancelled/Expired (4 @Transactional sites) → `reservation-events`; hotel/room-type changes → `catalog-events`
+- Env: KAFKA_BOOTSTRAP_SERVERS (new)
+- Blocker noted: Docker Desktop not running (needed for ITs)
+
+### [2026-11-24 10:15] [PLAN] — Story 3.1 outbox → Kafka (🟡) — confirmed by user
+- B1 foundation (deps, V5 attempts/last_error/aggregate_id, OutboxPort MANDATORY tx) · B2 emit reservation+catalog events · B3 relay job (SKIP LOCKED, per-row failure, lag/failed gauges, retention) · B4 IdempotentConsumer + DLT + placeholder consumer · B5 ITs, docs, VERIFY, ship
+- Payloads: ids/status/money-as-string, no guest PII; branch feature/3.1-outbox
+
+### [2026-11-24 10:50] [EXECUTE] — 3.1 Batch 1 foundation done
+- 1.1 spring-boot-starter-kafka (+ testcontainers-kafka, kafka-test); spring.kafka (acks=all, idempotent, 5-10 s timeouts); app.outbox.* + .env.example; KafkaContainer apache/kafka:4.4.0 in TestcontainersConfiguration; app.outbox.enabled=false in test props
+- 1.2 V5__outbox_relay.sql (aggregate_id UUID NOT NULL, attempts CHECK >= 0, last_error); database-nuzul.md §2 updated
+- 1.3 shared/outbox: Aggregate (column→topic), Topics, OutboxPort, JdbcOutbox (MANDATORY tx, Jackson 3 JsonMapper, ::jsonb)
+- Check: compile + test-compile OK; 256/258 unit pass, 2 errors = NuzulApiApplicationTests needs Docker (not running)
+
+### [2026-11-24 11:40] [EXECUTE] — 3.1 Batch 2 emit events done (implementer → spec PASS → quality PASS)
+- ReservationEvent (public, no PII; totalMad plain string) appended in Hold (new only, after reserve), Confirm (after capture; finish now takes Reservation), Cancel (after cancelIf), Expiry (after release); HotelChanged/RoomTypeChanged in catalog admin services (create/update)
+- Quality lows fixed: replay IT bypasses Redis cache to hit DB replay path; HotelAdminService.createdAt from Clock; expiry IT case added
+- Unit: 274 run, 0 fail, 2 errors (NuzulApiApplicationTests — Docker down). OutboxEventsIT (5 tests) compiles, NOT yet run
+- [2026-11-24 12:05] B1+B2 full verify with Docker: 274 unit + 231 IT, 0 failures (OutboxEventsIT green)
+
+### [2026-11-24 13:45] [EXECUTE] — 3.1 Batch 3 relay done (implementer → spec PASS → quality FAIL r1 → fixes → quality PASS r2)
+- shared/outbox: OutboxRelay (1 txn/run, SKIP LOCKED, sequential send+ack, allowlist poison classification, same-aggregate skip, run-budget PT30S, budget+send+10 s margin < lockAtMostFor PT1M), OutboxRelayJob, OutboxRetentionJob (cron, P7D), OutboxMetrics (outbox.lag.seconds, outbox.failed), OutboxTopicsConfig; JdbcOutbox created_at = clock_timestamp()
+- Orchestrator fix: LOCK_MARGIN 10 s on run-budget check (r2 low)
+- Tests: 295 unit + 237 IT green (implementer verify); Outbox*Test 21/21 after margin fix
+- Carry: gauge scrape may block on exhausted pool (prometheus not exposed yet)
+
+### [2026-11-25 11:50] [EXECUTE] — 3.1 Batch 4 consumer side done (spec FAIL r1 → fix → quality PASS → fixes)
+- shared/outbox: EventHeaders (event-id/event-type shared with relay; type must be [A-Za-z]{1,64}; quoted values truncated + control chars stripped), IdempotentConsumer (processed_event ON CONFLICT DO NOTHING in the handler's tx), KafkaConsumerConfig (3 retries 0.5/1/2 s → <topic>.DLT same partition; Invalid{Header,Payload} not retryable; DLT drops exception message/stacktrace headers — PII), DLT topics for both event topics, ack-mode record; shared app.kafka.partitions default
+- notification: placeholder ReservationEventsListener (logs only; app.notification.listener.enabled, off in tests); payload missing reservationId/status → DLT without claim
+- Spec r1 gap: no test for catalog-events.DLT → OutboxTopicsConfigTest. Accepted deviation: DLT any-partition fallback when source partition ≥ configured count
+- Quality: 0 crit/high; M1 DLT exception headers could carry PII (fixed); L2 event-type log injection, L3 control chars, L4 empty payload poison, L5 duplicated partitions default (all fixed)
+- Tests: 30 unit/arch + IdempotentConsumerIT 7/7 green
+
+### [2026-11-25 12:45] [CI] — PR #13 GREEN (run 45596852098): api verify + SonarCloud, web, images + Trivy.
+
+### [2026-11-25 12:45] [SHIP] — Story 3.1 outbox → Kafka with idempotent consumers
+- Summary: feature/3.1-outbox pushed; PR #13 → main, CI green, Sonar gate OK. Coverage 99.1% lines.
+- Status: complete
