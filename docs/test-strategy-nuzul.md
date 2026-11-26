@@ -45,5 +45,12 @@ A new resource is not done until it has a row here.
 - `OutboxRelayIT`: records carry their key and headers, and rows are marked published. One aggregate's events arrive in order. A record that is too large is parked without blocking the rows behind it. Two concurrent relays publish every event exactly once. Also covers the lag/parked gauges and retention.
 - `IdempotentConsumerIT`: a duplicate is handled once. Transient failures are retried, then the record is dead-lettered with its original value and headers (no exception message or stack trace) and no claim row. A missing event id or a tombstone goes to the DLT with no retry. A held reservation reaches the notification consumer end to end through the relay.
 
+## Search index (story 3.2)
+- `HotelSearchIndexIT`: alias bootstrap is race-safe; upserts need the alias and recreate it when missing; the swap is atomic and removes old and orphaned indices; bulk chunking and rejected documents.
+- `SearchIndexerIT`: hotel create/edit and a rate change flow through the relay and the `search-indexer` to the document (exact min price per month); retiring the hotel removes it.
+- `ReindexIT`: PLATFORM_ADMIN only (401/403); the new index holds active hotels only and the alias moves; a held lock gives 409 `REINDEX_IN_PROGRESS` and creates nothing; a hotel renamed and another retired *after* their page was read are correct after the catch-up (fails if the reindex runs in one transaction).
+- `JdbcReindexLockIT`, `JdbcRecentCatalogChangesIT`: lock held only during the work and released after a failure; the catch-up query's window and filtering.
+- Unit: listener branches (payload hotelId, unknown type skipped, poison → DLT before claim); retry classification (ES outage and transient DB errors retried without limit, everything else bounded → DLT).
+
 ## Coverage
 JaCoCo ≥ 80 % lines on `api` (CTS rule 6), enforced by the Sonar quality gate, which also requires 0 new bugs or vulnerabilities and ≤ 3 % duplication.

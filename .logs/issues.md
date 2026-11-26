@@ -123,3 +123,15 @@
 - Security: pass — Semgrep p/java + p/secrets on 31 changed main files: 0 findings; B2/B3/B4 quality reviews: no open critical/high; DLT exception message/stacktrace headers excluded (PII); event payloads carry no guest PII
 - Open lows: gauge scrape may block on an exhausted pool (prometheus not exposed yet); DLT any-partition fallback (accepted deviation)
 - Status: pass
+
+### [2026-11-26 11:20] [VERIFY] — Story 3.2 ES hotels index, search-indexer, alias-swap reindex (B1–B4)
+- Tests: full ./mvnw verify on final tree — 393 unit + 289 IT passed / 0 failed (spotless, Hexagonal, Modulith, JaCoCo gate green)
+- Reviews: B3 spec PASS, quality PASS r2 (r1 HIGH stale catch-up fixed + IT proving it); B4 spec PASS, quality PASS (lows only)
+- Security: pass — reindex PLATFORM_ADMIN via request matcher + @PreAuthorize (401/403 ITs); constant SQL, bound params; no payload/PII in logs or DLT; no secrets in diff (ES_PASSWORD from env)
+- Status: pass
+- Carry (lows): heal during reindex can fail the swap (retry) + heal WARN should say "run reindex"; QueryTimeoutException would loop if statement_timeout is ever set; leftover remove_index must_exist(false); HotelSearchIndexIT leaves 2 test indices in shared ES
+
+### [2026-11-26 11:35] [VERIFY] — Story 3.2 CI fix (test-only clock zone)
+- Tests: HotelDocumentAssemblerTest 3/3 locally; production code unchanged since full verify (393 unit + 289 IT)
+- Security: pass (test-only change)
+- Status: pass

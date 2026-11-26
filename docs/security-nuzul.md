@@ -23,6 +23,14 @@ Roles: `GUEST`, `HOTEL_ADMIN`, `PLATFORM_ADMIN`.
 ## 4. Authorisation
 Role checks with `@PreAuthorize` at the controller, plus **data scope in SQL** at the repository. A role claim is never enough on its own.
 
+| Role | Routes | Scope |
+|---|---|---|
+| `GUEST` | `/api/v1/reservations/**` | own reservations (`guest_sub = jwt.sub`) |
+| `HOTEL_ADMIN` | `/api/v1/admin/hotels/**`, `/api/v1/admin/room-types/**` (hotels, room types, inventory, rates) | own hotels (`hotel.owner_sub = jwt.sub`), others 404 |
+| `PLATFORM_ADMIN` | `/api/v1/admin/search/**` (reindex, story 3.2) | platform-wide; no data returned beyond index name and counts |
+
+Admin routes are guarded twice: a request matcher in `SecurityConfig` and `@PreAuthorize` on the controller; the two must agree.
+
 ## 5. Data protection
 TLS everywhere (Traefik + Let's Encrypt). PII stays in Postgres only, never in ES or logs (Logback masking for email).
 S3 bucket is private; reads go through CloudFront with OAC, writes through 5-minute presigned PUTs limited to `image/jpeg|png|webp` and 5 MB.

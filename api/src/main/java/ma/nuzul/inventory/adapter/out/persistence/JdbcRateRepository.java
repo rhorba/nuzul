@@ -1,10 +1,16 @@
 package ma.nuzul.inventory.adapter.out.persistence;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import ma.nuzul.inventory.application.RateRepositoryPort;
 import ma.nuzul.inventory.domain.RateChange;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -64,5 +70,29 @@ class JdbcRateRepository implements RateRepositoryPort {
                         rs.getBoolean("all_refundable"),
                         rs.getInt("max_hours")))
                 .single();
+    }
+
+    /*
+     * One grouped statement over the (room_type_id, night) primary key; min() on NUMERIC stays NUMERIC. Ids travel
+     * as text and are cast to uuid[] in Postgres, like the nights of UPSERT_RATES.
+     */
+    @Override
+    public Map<YearMonth, BigDecimal> minPriceByMonth(
+            Collection<UUID> roomTypeIds, LocalDate from, LocalDate toExclusive) {
+        String[] ids = roomTypeIds.stream().map(UUID::toString).toArray(String[]::new);
+        Map<YearMonth, BigDecimal> byMonth = new LinkedHashMap<>();
+        jdbc.sql("""
+                        SELECT date_trunc('month', night::timestamp)::date AS month, min(price_mad) AS min_price
+                        FROM rate
+                        WHERE room_type_id = ANY(:ids::uuid[]) AND night >= :from AND night < :to
+                        GROUP BY date_trunc('month', night::timestamp)
+                        ORDER BY month
+                        """)
+                .param("ids", ids)
+                .param("from", from)
+                .param("to", toExclusive)
+                .query((RowCallbackHandler) rs -> byMonth.put(
+                        YearMonth.from(rs.getObject("month", LocalDate.class)), rs.getBigDecimal("min_price")));
+        return byMonth;
     }
 }

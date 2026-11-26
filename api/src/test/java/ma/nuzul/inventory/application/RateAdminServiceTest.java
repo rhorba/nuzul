@@ -11,14 +11,18 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import ma.nuzul.catalog.RoomTypeOwnership;
+import ma.nuzul.inventory.HotelPricesChanged;
 import ma.nuzul.inventory.domain.BookingWindow;
 import ma.nuzul.inventory.domain.RateChange;
 import ma.nuzul.shared.error.CodedException;
 import ma.nuzul.shared.error.DomainValidationException;
 import ma.nuzul.shared.error.NotFoundException;
+import ma.nuzul.shared.outbox.Aggregate;
+import ma.nuzul.shared.outbox.RecordingOutbox;
 import org.junit.jupiter.api.Test;
 
 /** Bulk rate rules against in-memory ports and a fixed clock; no Spring. */
@@ -33,8 +37,11 @@ class RateAdminServiceTest {
 
     private final UUID roomTypeId = UUID.randomUUID();
     private final InMemoryRateRepository repo = new InMemoryRateRepository();
-    private final RoomTypeOwnership ownership = (id, sub) -> id.equals(roomTypeId) && sub.equals(OWNER);
-    private final RateAdminService service = new RateAdminService(repo, ownership, CLOCK);
+    private final UUID hotelId = UUID.randomUUID();
+    private final RoomTypeOwnership ownership =
+            (id, sub) -> id.equals(roomTypeId) && sub.equals(OWNER) ? Optional.of(hotelId) : Optional.empty();
+    private final RecordingOutbox outbox = new RecordingOutbox();
+    private final RateAdminService service = new RateAdminService(repo, ownership, outbox, CLOCK);
 
     private static RateChange change(int plusDays, String price, boolean refundable) {
         return new RateChange(TODAY.plusDays(plusDays), new BigDecimal(price), refundable);
@@ -60,12 +67,24 @@ class RateAdminServiceTest {
     }
 
     @Test
+    void eachCallAppendsOneHotelPricesChangedEventKeyedByTheHotel() {
+        service.setRates(OWNER, roomTypeId, List.of(change(1, "850.00", true), change(2, "900", false)));
+        service.setRates(OWNER, roomTypeId, List.of(change(3, "100", true)));
+
+        var expected = new RecordingOutbox.Event(
+                Aggregate.HOTEL, hotelId, HotelPricesChanged.TYPE, new HotelPricesChanged(hotelId, Instant.now(CLOCK)));
+        assertThat(outbox.events).containsExactly(expected, expected);
+        assertThat(repo.upsertCalls).isEqualTo(2);
+    }
+
+    @Test
     void otherOwnerIsRoomTypeNotFoundAndNothingIsWritten() {
         var e = thrown(() -> service.setRates("someone-else", roomTypeId, List.of(change(1, "100", true))));
 
         assertThat(e).isInstanceOf(NotFoundException.class);
         assertThat(e.code()).isEqualTo(RateAdminService.ROOM_TYPE_NOT_FOUND);
         assertThat(repo.upsertCalls).isZero();
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test
@@ -74,6 +93,7 @@ class RateAdminServiceTest {
 
         assertThat(e.code()).isEqualTo(RateAdminService.ROOM_TYPE_NOT_FOUND);
         assertThat(repo.upsertCalls).isZero();
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test
@@ -89,6 +109,7 @@ class RateAdminServiceTest {
                                 TODAY.minusDays(1).toString(),
                                 TODAY.plusDays(180).toString()));
         assertThat(repo.upsertCalls).isZero();
+        assertThat(outbox.events).isEmpty();
     }
 
     @Test
@@ -126,5 +147,6 @@ class RateAdminServiceTest {
         assertThat(e).isInstanceOf(DomainValidationException.class);
         assertThat(e.code()).isEqualTo(DomainValidationException.VALIDATION_FAILED);
         assertThat(repo.upsertCalls).isZero();
+        assertThat(outbox.events).isEmpty();
     }
 }

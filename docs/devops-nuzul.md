@@ -25,7 +25,7 @@ syncs the release. A manual approval environment is required for prod.
 | nuzul-web | nginx Deployment | 32 MB |
 | Postgres 16 | CloudNativePG, 1 instance, nightly backup to S3. Needs a pg_partman-enabled operand image and `shared_preload_libraries: [pg_partman_bgw]` (see database doc §2.1). | 512 MB |
 | Redis 7 | Bitnami chart, standalone | 128 MB |
-| Elasticsearch 8 | ECK, 1 node, heap 512 MB | 1.25 GB |
+| Elasticsearch 9 | ECK, 1 node, heap 512 MB | 1.25 GB |
 | Kafka | Strimzi KRaft, 1 broker | 768 MB |
 | Keycloak | Helm, `start --optimized` | 768 MB |
 | Observability | kube-prometheus-stack (slim) + Loki + Tempo | ~1.2 GB |
@@ -38,7 +38,7 @@ Total is about 5.5 GB, inside the 24 GB free-tier Ampere allowance shared with e
 | nuzul-web (nginx) | 8 MB | 32 MB | OK |
 | Postgres 16 | 48 MB | 512 MB | OK (empty DB) |
 | Redis 7 | 4 MB | 128 MB | OK |
-| Elasticsearch 8 (heap 512 MB) | 1,044 MB | 1 GB | **Tight** → budget 1.25 GB |
+| Elasticsearch 9 (heap 512 MB) | 1,044 MB | 1 GB | **Tight** → budget 1.25 GB |
 | Kafka 4.4 KRaft (heap ≤ 512 MB) | 433 MB | 768 MB | OK |
 | Keycloak 26 (`start-dev`) | 768 MB | 512 MB | **Over** → budget 768 MB; prod `start --optimized` + `-XX:MaxRAMPercentage` |
 

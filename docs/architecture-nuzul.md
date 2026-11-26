@@ -31,6 +31,28 @@ Consumers are idempotent: they record each processed event id.
 - **Relay.** `OutboxRelay` runs under ShedLock in one transaction per run. It sends rows in order and acknowledges each one, keyed by `aggregate_id` so one aggregate's events stay ordered. A row that fails for a permanent reason is parked after `app.outbox.max-attempts`, and the rows of other aggregates keep flowing. Published rows are deleted after `app.outbox.retention`. Every record has an `event-id` header (the row id) and an `event-type` header.
 - **Consuming.** `IdempotentConsumer.handleOnce` inserts `(consumer, event_id)` into `processed_event` (`ON CONFLICT DO NOTHING`) in the same transaction as the handler, so a handler failure rolls the claim back. The single `DefaultErrorHandler` retries 3 times (0.5, 1, 2 s), then publishes to `<topic>.DLT` on the same partition. A bad header or payload goes to the DLT at once. DLT records keep only the exception class names: messages and stack traces are dropped because they can carry PII. Offsets are committed per record. The consumer name is also the consumer group, so it must never be renamed (a new group replays the whole topic).
 
+### ADR-7: Search reindex by alias swap, with an outbox catch-up (story 3.2)
+**Context.** The hotel index must be rebuildable (mapping change, data loss) with no window where search is empty or
+half-built, while the `search-indexer` keeps applying live catalog changes.
+
+**Decision.** A synchronous, single-flight `POST /api/v1/admin/search/reindex` builds a fresh `hotels-<ts>` index beside
+the live one, then swaps the `hotels` alias in one atomic `_aliases` request. Live writes always go through the alias.
+Writes the listener makes between a page read and the swap land in the old index and would be lost at the swap, so after
+it the reindex re-syncs every hotel with a catalog `outbox_event` row created since its start (DB clock − 1 minute; the
+margin covers transactions that appended before the start but committed later).
+
+**Rejected.**
+- Listener dual-writes to the in-progress index: every replica would need to discover it (shared state or a migration).
+- One transaction around the whole reindex: JPA's persistence context hands the catch-up the entity it cached during
+  paging, so mid-reindex edits were re-written stale. Reads run in their own short transactions; only the lock lives on
+  a dedicated connection.
+- Async job + status table, ES external versioning: YAGNI at this catalog size.
+
+**Consequences.** Edits during a reindex reach search a few seconds late. The session lock assumes a direct Postgres
+connection (no PgBouncer transaction pooling) and no `idle_session_timeout` shorter than a reindex. The indexer retries
+Elasticsearch outages (IO, 429, 5xx) and transient Postgres errors without limit (1 s → 30 s, rate-limited WARN); a
+persistent failure therefore stalls the partition, visible as `search-indexer` consumer lag (risks log).
+
 ### ADR-5: Auth through Keycloak; the API is a resource server
 The Angular app uses the OIDC code flow with PKCE (angular-auth-oidc-client). The API validates JWTs and maps realm roles to authorities.
 Hotel-admin scope is checked in the DB (`hotel.owner_sub = jwt.sub`), never from a claim alone.

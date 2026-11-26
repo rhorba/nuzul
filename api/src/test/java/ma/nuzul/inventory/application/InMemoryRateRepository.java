@@ -2,6 +2,8 @@ package ma.nuzul.inventory.application;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -20,6 +22,7 @@ class InMemoryRateRepository implements RateRepositoryPort {
 
     final Map<UUID, Map<LocalDate, Row>> rows = new TreeMap<>();
     int upsertCalls;
+    int minPriceCalls;
 
     void seed(UUID roomTypeId, LocalDate night, Row row) {
         rows.computeIfAbsent(roomTypeId, k -> new TreeMap<>()).put(night, row);
@@ -56,5 +59,20 @@ class InMemoryRateRepository implements RateRepositoryPort {
             }
         }
         return new PricedNights(nights, total, nights > 0 && allRefundable, maxHours);
+    }
+
+    @Override
+    public Map<YearMonth, BigDecimal> minPriceByMonth(
+            Collection<UUID> roomTypeIds, LocalDate from, LocalDate toExclusive) {
+        minPriceCalls++;
+        Map<YearMonth, BigDecimal> byMonth = new TreeMap<>();
+        for (UUID roomTypeId : roomTypeIds) {
+            rows.getOrDefault(roomTypeId, Map.of()).forEach((night, row) -> {
+                if (!night.isBefore(from) && night.isBefore(toExclusive)) {
+                    byMonth.merge(YearMonth.from(night), row.priceMad(), BigDecimal::min);
+                }
+            });
+        }
+        return byMonth;
     }
 }

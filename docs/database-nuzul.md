@@ -17,6 +17,9 @@ CREATE TABLE hotel (
 CREATE TABLE room_type (
   id UUID PRIMARY KEY, hotel_id UUID NOT NULL REFERENCES hotel(id),
   name TEXT NOT NULL, capacity SMALLINT NOT NULL CHECK (capacity > 0), bed_config TEXT);
+-- V6 (story 3.2): Postgres does not index FK columns; the search indexer reads a hotel's room types by hotel_id
+-- on every catalog event and per reindex page.
+CREATE INDEX room_type_hotel ON room_type (hotel_id);
 
 CREATE TABLE room_inventory (
   room_type_id UUID NOT NULL REFERENCES room_type(id), night DATE NOT NULL,
@@ -99,4 +102,20 @@ They assert that the DB refuses bad writes: oversell, a negative reserved count,
 
 ## 5. Elasticsearch index `hotels`
 `{id, name(text+keyword), city(keyword), location(geo_point), stars, amenities(keyword[]), minPriceByMonth(object)}`.
-It is rebuilt from Postgres by `POST /admin/search/reindex` (platform admin).
+Strict mapping; `minPriceByMonth` keys are `yyyy-MM` (cheapest `rate.price_mad` per calendar month over the next 12
+months, as `scaled_float`). A projection, never authoritative: every write is rebuilt from Postgres.
+
+*As built (story 3.2):*
+- **Alias.** Reads and live writes use the alias `hotels` (`app.search.alias`); the concrete indices are
+  `hotels-<UTC timestamp>`. Live writes use `require_alias`, so a missing alias can never auto-create a concrete
+  `hotels` index; instead the indexer recreates the alias (`ensureAliasExists`) and retries once.
+- **Live sync.** Consumer `search-indexer` on `catalog-events` (`HotelChanged`, `RoomTypeChanged`,
+  `HotelPricesChanged`, all keyed by hotel). It takes `hotelId` from the payload (never the key, never `occurredAt`),
+  re-reads `HotelSnapshots` + `MinPrices`, and upserts, or deletes when the hotel is gone or INACTIVE.
+- **Reindex.** `POST /api/v1/admin/search/reindex` (PLATFORM_ADMIN) — see architecture ADR-7. Single-flight via a
+  session advisory lock `(hashtext('nuzul.search'), hashtext('reindex'))` on a dedicated connection (409
+  `REINDEX_IN_PROGRESS`); keyset pages of 500 active hotels → bulk into a new index → one atomic `_aliases` request that
+  moves the alias and deletes the old and orphaned `hotels-*` indices → catch-up from `outbox_event`.
+- **Catch-up query** (no index needed: retention keeps the table small):
+  `SELECT DISTINCT (payload->>'hotelId')::uuid FROM outbox_event WHERE aggregate IN ('hotel','room_type')
+  AND created_at >= :reindexStart - interval '1 minute'` (start read from the DB clock).

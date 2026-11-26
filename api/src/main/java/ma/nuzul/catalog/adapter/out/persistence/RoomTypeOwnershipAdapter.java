@@ -1,5 +1,6 @@
 package ma.nuzul.catalog.adapter.out.persistence;
 
+import java.util.Optional;
 import java.util.UUID;
 import ma.nuzul.catalog.RoomTypeOwnership;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ class RoomTypeOwnershipAdapter implements RoomTypeOwnership {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean isOwnedBy(UUID roomTypeId, String ownerSub) {
-        return repository.existsOwned(roomTypeId, ownerSub);
+    public Optional<UUID> hotelOfOwned(UUID roomTypeId, String ownerSub) {
+        return repository.findOwnedHotelId(roomTypeId, ownerSub);
     }
 }

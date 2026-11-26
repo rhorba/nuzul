@@ -2,11 +2,13 @@ package ma.nuzul;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.stream.Stream;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -59,5 +61,34 @@ public class TestcontainersConfiguration {
     @ServiceConnection
     KafkaContainer kafkaContainer() {
         return new KafkaContainer(DockerImageName.parse("apache/kafka:4.4.0"));
+    }
+
+    /**
+     * The hotel search index (story 3.2), security off as in compose. Major version 9 because Boot 4.1's
+     * elasticsearch-java 9.4.8 client sends {@code compatible-with=9}, which 8.x servers refuse.
+     *
+     * <p>One container per test JVM, not per context: each cached Spring test context would otherwise start its own
+     * (~800 MB), and the suite's dozen contexts exhaust Docker's memory. Boot closes container beans when a context
+     * closes, so stop() is a no-op here and Ryuk removes the container when the JVM exits. start() on a running
+     * container does nothing, so every context reuses it. Indices and the alias therefore outlive each test class: an
+     * IT that needs a clean index wipes it itself, and an IT that needs the alias calls {@code ensureAliasExists()} in
+     * its own setup (an earlier class may have deleted it after this context's startup bootstrap ran).
+     */
+    private static final ElasticsearchContainer ELASTICSEARCH =
+            new ElasticsearchContainer(DockerImageName.parse("elasticsearch:9.4.8")
+                    .asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch")) {
+                @Override
+                public void stop() {
+                    // shared by every context of this JVM; Ryuk stops it
+                }
+            }.withEnv("xpack.security.enabled", "false")
+                    .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
+                    // A cold start on a freshly booted Docker VM takes 40-60+ s, past the 60 s default wait.
+                    .withStartupTimeout(Duration.ofMinutes(3));
+
+    @Bean
+    @ServiceConnection
+    ElasticsearchContainer elasticsearchContainer() {
+        return ELASTICSEARCH;
     }
 }

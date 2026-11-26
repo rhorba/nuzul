@@ -335,3 +335,67 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-25 12:45] [SHIP] — Story 3.1 outbox → Kafka with idempotent consumers
 - Summary: feature/3.1-outbox pushed; PR #13 → main, CI green, Sonar gate OK. Coverage 99.1% lines.
 - Status: complete
+
+### [2026-11-25 13:00] [CI] — PR #13 GREEN on logs commit 79ea579 (run 45598237971). Entry uncommitted; goes in with the next branch.
+
+### [2026-11-25 13:20] [UNDERSTAND] — Story 3.2 ES index + indexer + reindex
+- Track: Standard (new ES adapter, Kafka consumer, admin endpoint, touches inventory events)
+- Found: ES 8.19 in compose; ES_URL/ES_USER/ES_PASSWORD already in .env.example (no new env vars); search/ module empty; PLATFORM_ADMIN role in realm; index spec database §5
+- Gaps: rate bulk updates emit no event (min price stale); RoomTypeChanged keyed by roomTypeId → one hotel's updates across partitions (out-of-order re-read/write)
+
+### [2026-11-25 13:25] [BRAINSTORM] — Story 3.2 options presented (🟢 single index / 🟡 +HotelPricesChanged, hotel-keyed catalog events, alias-swap reindex / 🔴 +async job, external versioning); awaiting pick, recommended 🟡
+
+### [2026-11-25 13:30] [CI] — main after PR #13 merge (bf55591), run 45599782727: GREEN (api verify + Sonar, web, images + Trivy + push).
+
+### [2026-11-25 13:40] [PLAN] — Story 3.2 (🟡) — awaiting confirmation
+- HANDOFF Orchestrator → Scrum Master: 🟡 chosen; need batches.
+- B1 index foundation (ES client, Testcontainer, mapping, HotelSearchIndex alias ops) · B2 events (RoomTypeChanged keyed by hotel, HotelPricesChanged, HotelSnapshots/MinPrices APIs) · B3 indexer listener + reindex endpoint (advisory try-lock → 409) · B4 ITs, docs, VERIFY, ship
+- Accepted limit: edits during a reindex may miss the new index until the next event
+
+### [2026-11-25 13:50] [PLAN] — Story 3.2 confirmed by user ("go"); branch feature/3.2-search-index from main @ bf55591
+### [2026-11-25 13:50] [EXECUTE] — 3.2 B1 dispatched to implementer (ES client, Testcontainer, mapping, HotelSearchIndex alias ops, non-fatal bootstrap)
+
+### [2026-11-25 15:30] [EXECUTE] — 3.2 B1 implemented; spec PASS; quality FAIL r1
+- Implementer: ES starter (client 9.4.8), JVM-wide ES 9.4.8 test container, strict hotels mapping (minPriceByMonth yyyy-MM → scaled_float), HotelDocument, HotelSearchIndex port + ES adapter (alias, is_write_index race-safe), non-fatal bootstrap; 331 unit + 254 IT green
+- Quality r1: HIGH upsert without alias auto-creates concrete `hotels` index (permanent breakage) → requireAlias; MEDIUM non-atomic old-index delete → remove_index in same _aliases + deleteIndex port; LOWs: orphan WARN, bulk chunking 500, missing ITs, shared-container doc. Sent back to implementer.
+
+### [2026-11-25 16:10] [EXECUTE] — 3.2 B1 done (quality r2 PASS)
+- Fixes: upsert requireAlias(true); switchAliasTo add + remove_index in one _aliases; deleteIndex (ignoreUnavailable; refuses the live aliased index — orchestrator fix for r2 low); stray-index WARN + addSuppressed; bulk chunks 500, error cap 10; JVM-wide container convention documented
+- Tests: HotelSearchIndexIT 18/18; search unit + Modularity + Hexagonal 16/16; NuzulApiApplicationTests 2/2
+- Owner decisions applied: ES 9.4.8 (compose, CLAUDE.md, README, system design, devops); ES health indicator off
+
+### [2026-11-25 16:20] [EXECUTE] — 3.2 B2 dispatched to implementer (RoomTypeChanged keyed by hotel, HotelPricesChanged in setRates tx, catalog HotelSnapshots find/activePage, inventory MinPrices.byMonth)
+
+### [2026-11-25 17:20] [EXECUTE] — 3.2 B2 done (spec PASS, quality PASS)
+- RoomTypeChanged keyed by hotel (ROOM_TYPE kept legacy-readable); HotelPricesChanged in setRates tx (hotelOfOwned owner-scoped, same 404); catalog HotelSnapshots find/activePage (keyset, 2 queries); inventory MinPrices.byMonth (one GROUP BY query)
+- Quality fixes (orchestrator): M1 V6 index room_type(hotel_id); L2 comments: order not load-bearing (append-time vs commit-time); L4 date_trunc on ::timestamp (TZ-free); L5 removed duplicate existsOwned/isOwnedBy override
+- Carry to B3: consumer takes hotelId from payload (legacy room_type-keyed rows), never compares occurredAt; MinPrices "today" from shared Clock (Africa/Casablanca)
+- Tests: 335 unit + 141 IT (6 affected suites) green
+
+### [2026-11-26] [EXECUTE] — 3.2 B3 dispatched to implementer (search-indexer listener, HotelDocument assembler, reindex endpoint with advisory try-lock + outbox catch-up)
+### [2026-11-26] [EXECUTE] — 3.2 B3 implemented (mvnw verify: 364 unit + 284 IT green, JaCoCo 98.8% line); dispatched to spec-reviewer
+- Deviations: ITs start search-indexer via KafkaListenerEndpointRegistry + drive relay by hand (no new context); catch-up IT weak by nature, logic proven in ReindexServiceTest
+- Noticed: SecurityConfig comment promises a reindex request matcher that doesn't exist; ES container 60 s startup wait borderline (2 flaky runs)
+### [2026-11-26] [EXECUTE] — 3.2 B3 spec PASS (notes: catch-up IT could use a divergent doc; unknown-type w/o event-id → DLT); dispatched to quality-reviewer
+### [2026-11-26] [EXECUTE] — 3.2 B3 quality FAIL r1
+- HIGH: one JPA tx around reindex → catch-up find() returns the persistence-context copy loaded during paging (stale name/status written to ES; also memory growth + dirty-checking). Fix: lock on its own tx/connection, catalog reads in their own short tx; IT editing a hotel mid-reindex.
+- MEDIUM: ES outage > ~3.5 s dead-letters catalog events (no replay/alert) → raised with owner; MEDIUM: unbounded sync request/long tx (resolved by HIGH fix)
+- LOWs sent back too: catch-up IT premise, start from DB clock, SecurityConfig matcher, ES container startup timeout 3 min
+### [2026-11-26] [EXECUTE] — 3.2 B3 r1 fixes done (mvnw verify: 380 unit + 287 IT green, JaCoCo 98.2% line); quality r2 dispatched
+- Lock: session pg_try_advisory_lock on a dedicated DataSource connection (runExclusively), reads in their own short txs; start from DB clock_timestamp(); SecurityConfig PLATFORM_ADMIN matcher; ES startup 3 min
+- New IT catchUpAppliesEditsMadeAfterThePagesWereRead fails with old @Transactional (proven), passes now
+- ES outage: SearchUnavailableException classified in adapter; search-indexer factory with unbounded 1s→30s backoff; shared ListenerErrorHandlers
+### [2026-11-26] [EXECUTE] — 3.2 B3 done (quality r2 PASS)
+- Open mediums: M1 alias missing (ES cold start beats one-shot bootstrap) → upsert/delete 404 → DLT; M2 permanent 5xx stalls partition silently (accepted trade-off, needs WARN/lag alert). Lows: PG outage → DLT, session lock vs idle_session_timeout/PgBouncer, orphan hotels-<ts> indices, abort-path/exception-change tests, SwapHook thread-local.
+### [2026-11-26] [EXECUTE] — 3.2 B3 committed fc59d71; B4 code fixes dispatched to implementer, docs inline
+### [2026-11-26] [EXECUTE] — 3.2 B4 docs: database §5 as-built + V6, ADR-7 (alias swap + outbox catch-up), security role/route table, test strategy §Search index
+### [2026-11-26] [EXECUTE] — 3.2 B4 code fixes implemented (mvnw verify: 393 unit + 289 IT green, JaCoCo 98.4% line / 92.7% branch); spec review dispatched
+### [2026-11-26] [EXECUTE] — 3.2 B4 code spec PASS (note: setRetryListeners replaces — spring-kafka 4.1.2 has no addRetryListener; fine while shared handler registers none); quality review dispatched
+### [2026-11-26 11:25] [CI] — PR #14 opened (feature/3.2-search-index @ bc8f76b); watching checks
+### [2026-11-26 11:35] [CI] — PR #14 run 45809538789 RED: HotelDocumentAssemblerTest (CI JDK tzdata resolves Africa/Casablanca to UTC+0 → "today" Nov 30 not Dec 1; same class of issue as story 1.x). Fix: fixed ZoneOffset.ofHours(1) in the test; test green locally. ITs not reached in that run.
+### [2026-11-26 11:50] [CI] — PR #14 run 45810197907 GREEN (api verify + Sonar 6m10s, images build + Trivy 3m54s, web 29s) @ ae89684
+
+### [2026-11-26 11:50] [SHIP] — Story 3.2 ES hotels index + search-indexer + alias-swap reindex
+- Summary: feature/3.2-search-index @ ae89684, PR #14 (https://github.com/rhorba/nuzul/pull/14), CI green; awaiting owner merge
+- Video: n/a — no user-facing UI change (backend + admin endpoint; search UI is a later story)
+- Status: complete

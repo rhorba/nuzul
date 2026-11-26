@@ -37,6 +37,12 @@ public final class AdminApi {
         return jwt().jwt(j -> j.subject(sub)).authorities(new SimpleGrantedAuthority("ROLE_HOTEL_ADMIN"));
     }
 
+    /** The platform operator (search reindex); owns no hotels. */
+    public static JwtRequestPostProcessor platformAdmin() {
+        return jwt().jwt(j -> j.subject("platform-admin"))
+                .authorities(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN"));
+    }
+
     public static JwtRequestPostProcessor guest() {
         return jwt().jwt(j -> j.subject("guest-1")).authorities(new SimpleGrantedAuthority("ROLE_GUEST"));
     }

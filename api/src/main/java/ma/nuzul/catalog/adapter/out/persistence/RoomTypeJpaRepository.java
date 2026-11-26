@@ -1,5 +1,6 @@
 package ma.nuzul.catalog.adapter.out.persistence;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,13 +30,28 @@ interface RoomTypeJpaRepository extends JpaRepository<RoomTypeJpaEntity, UUID> {
             """)
     List<RoomTypeJpaEntity> findAllScoped(@Param("hotelId") UUID hotelId, @Param("owner") String ownerSub);
 
-    /** For other modules (RoomTypeOwnership): the room type exists AND its hotel belongs to the caller. */
+    /** For other modules (RoomTypeOwnership): the room type's hotel id, only when that hotel belongs to the caller. */
     @Query("""
-            select count(r) > 0 from RoomTypeJpaEntity r
+            select r.hotelId from RoomTypeJpaEntity r
             where r.id = :id
               and exists (select 1 from HotelJpaEntity h where h.id = r.hotelId and h.ownerSub = :owner)
             """)
-    boolean existsOwned(@Param("id") UUID id, @Param("owner") String ownerSub);
+    Optional<UUID> findOwnedHotelId(@Param("id") UUID id, @Param("owner") String ownerSub);
+
+    /** For HotelSnapshots: every room type id of the given hotels in one query, as (hotelId, roomTypeId) pairs. */
+    @Query("""
+            select r.hotelId as hotelId, r.id as roomTypeId from RoomTypeJpaEntity r
+            where r.hotelId in :hotelIds
+            order by r.hotelId, r.id
+            """)
+    List<HotelRoomType> findRoomTypeIdsOf(@Param("hotelIds") Collection<UUID> hotelIds);
+
+    /** Projection of {@link #findRoomTypeIdsOf}. */
+    interface HotelRoomType {
+        UUID getHotelId();
+
+        UUID getRoomTypeId();
+    }
 
     /** For other modules (BookableRoomTypes): the room type's hotel id, only when that hotel is ACTIVE. */
     @Query("""

@@ -29,7 +29,7 @@ flowchart LR
     A -- outbox poller --> KF[[Kafka KRaft]]
     KF --> S
     KF --> N
-    S -- query / index --> ES[(Elasticsearch 8)]
+    S -- query / index --> ES[(Elasticsearch 9)]
     N -- SMTP --> M[Mailpit / SMTP]
 ```
 
@@ -65,5 +65,5 @@ for `amd64` + `arm64`.
 
 ## Stack
 
-Java 21 · Spring Boot 4.1 · Spring Modulith 2 · PostgreSQL 16 + Flyway · Redis · Elasticsearch 8 · Kafka ·
+Java 21 · Spring Boot 4.1 · Spring Modulith 2 · PostgreSQL 16 + Flyway · Redis · Elasticsearch 9 · Kafka ·
 Keycloak · Angular 22 + PrimeNG · Testcontainers · SonarCloud · Trivy · Jib · Helm on k3s · Terraform (AWS S3 + CloudFront).

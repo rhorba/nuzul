@@ -8,7 +8,7 @@
 53 on-site/hybrid Java offers in Morocco (see `docs/prd-nuzul.md` §1).
 
 **Stack:** Java 21 · Spring Boot 4 (Spring Modulith, hexagonal modules) · PostgreSQL 16 + Flyway ·
-Redis · Elasticsearch 8 · Kafka (outbox) · Keycloak · Angular + PrimeNG · Testcontainers · SonarCloud ·
+Redis · Elasticsearch 9 · Kafka (outbox) · Keycloak · Angular + PrimeNG · Testcontainers · SonarCloud ·
 Docker/Jib · Helm on k3s · Terraform (AWS S3 + CloudFront) · OpenTelemetry/Prometheus/Grafana/Loki.
 
 **Design source of truth:** `docs/system-design-nuzul.md` (five-step framework). Its §2 "Rules that must
