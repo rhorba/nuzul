@@ -130,3 +130,8 @@
 - Security: pass — reindex PLATFORM_ADMIN via request matcher + @PreAuthorize (401/403 ITs); constant SQL, bound params; no payload/PII in logs or DLT; no secrets in diff (ES_PASSWORD from env)
 - Status: pass
 - Carry (lows): heal during reindex can fail the swap (retry) + heal WARN should say "run reindex"; QueryTimeoutException would loop if statement_timeout is ever set; leftover remove_index must_exist(false); HotelSearchIndexIT leaves 2 test indices in shared ES
+
+### [2026-11-26 11:35] [VERIFY] — Story 3.2 CI fix (test-only clock zone)
+- Tests: HotelDocumentAssemblerTest 3/3 locally; production code unchanged since full verify (393 unit + 289 IT)
+- Security: pass (test-only change)
+- Status: pass

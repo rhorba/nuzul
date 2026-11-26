@@ -12,7 +12,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,8 +23,11 @@ import org.junit.jupiter.api.Test;
 /** Story 3.2: one hotel's search document, built from its catalog snapshot and its cheapest rate per month. */
 class HotelDocumentAssemblerTest {
 
-    /** 23:30 UTC on Nov 30 is already Dec 1 in Casablanca (UTC+1): "today" must come from the clock's zone. */
-    static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-30T23:30:00Z"), ZoneId.of("Africa/Casablanca"));
+    /**
+     * 23:30 UTC on Nov 30 is already Dec 1 at UTC+1: "today" must come from the clock's zone. A fixed offset, not
+     * Africa/Casablanca: JDK tzdata builds disagree on Morocco's offset (CI resolved it to UTC+0), which made this flaky.
+     */
+    static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-30T23:30:00Z"), ZoneOffset.ofHours(1));
 
     private final MinPrices minPrices = mock(MinPrices.class);
     private final HotelDocumentAssembler assembler = new HotelDocumentAssembler(minPrices, CLOCK);
