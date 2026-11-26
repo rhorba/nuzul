@@ -2,6 +2,7 @@ package ma.nuzul;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.stream.Stream;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -80,7 +81,10 @@ public class TestcontainersConfiguration {
                 public void stop() {
                     // shared by every context of this JVM; Ryuk stops it
                 }
-            }.withEnv("xpack.security.enabled", "false").withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m");
+            }.withEnv("xpack.security.enabled", "false")
+                    .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
+                    // A cold start on a freshly booted Docker VM takes 40-60+ s, past the 60 s default wait.
+                    .withStartupTimeout(Duration.ofMinutes(3));
 
     @Bean
     @ServiceConnection

@@ -40,3 +40,5 @@
 
 ### [2026-11-25] [CORRECTION] — 3.2 B3 reindex must not lose live writes
 - Quality review of B1 (M3): listener writes during a reindex go to the old index and are dropped at the swap. B3 plan change: while the reindex holds its advisory lock, the listener also writes to the in-progress index (or reindex re-applies changes after swap). Replaces the "accepted limit" in the 3.2 plan.
+
+### [2026-11-26] [CORRECTION] — 3.2 B3 resolves the 2026-11-25 live-write correction via catch-up (not dual-write); B3 also carries its ITs (implementer is test-first), B4 = docs + VERIFY + ship

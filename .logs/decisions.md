@@ -86,3 +86,11 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 ### [2026-11-25] [DECISION] — Elasticsearch 9.4.8 (was 8.19.25)
 - Boot 4.1.2 ships elasticsearch-java/rest5 9.4.8 (sends compatible-with=9; ES 8 rejects it; no 8.x Rest5 client). User chose to move compose + docs to ES 9.4.8.
 - ES health indicator disabled (same fail-open reasoning as Redis). User-approved.
+
+### [2026-11-26] [DECISION] — 3.2 B3 reindex live-write safety: catch-up after swap
+- Options: A) catch-up after swap (re-upsert hotels with catalog outbox rows created since reindex start − 1 min) / B) listener dual-writes to the in-progress index (needs shared state: migration or ES discovery).
+- Chosen by owner: A. Why: no migration, listener stays single-target, correct across replicas (outbox is in Postgres); cost: edits during a reindex reach search seconds later.
+
+### [2026-11-26] [DECISION] — 3.2 B3 search-indexer retries ES outages
+- Options: own error handler with capped backoff for ES transport errors / runbook only / defer.
+- Chosen by owner: retry longer. Poison payloads still go straight to DLT. Cost: partition blocks while ES is down (acceptable: search is eventually consistent, catalog writes unaffected).

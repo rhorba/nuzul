@@ -103,6 +103,10 @@ app:
     alias: ${APP_SEARCH_ALIAS:hotels}
     # Create the index and alias at startup when missing. An unreachable cluster only logs a WARN.
     bootstrap-enabled: ${APP_SEARCH_BOOTSTRAP_ENABLED:true}
+    listener:
+      # Story 3.2: the search indexer (consumer group search-indexer) keeps the alias in sync from catalog-events.
+      # Off: the index only changes on a reindex (POST /api/v1/admin/search/reindex).
+      enabled: ${APP_SEARCH_LISTENER_ENABLED:true}
   kafka:
     # Story 3.1: reservation-events and catalog-events are created at startup with these settings. Partitions cap
     # consumer parallelism (an aggregate's events stay on one partition); replicas must not exceed the broker count.

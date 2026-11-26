@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
+import co.elastic.clients.transport.TransportException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +23,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import ma.nuzul.search.application.HotelDocument;
 import ma.nuzul.search.application.HotelSearchIndex;
+import ma.nuzul.search.application.SearchUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -252,16 +254,43 @@ class ElasticsearchHotelSearchIndex implements HotelSearchIndex {
     }
 
     @FunctionalInterface
-    private interface EsCall<T> {
+    interface EsCall<T> {
         T run() throws IOException;
     }
 
-    /** The client throws IOException for transport failures (unreachable, timeout); callers get it unchecked. */
-    private static <T> T call(EsCall<T> call) {
+    /**
+     * Every client call goes through here, which sorts failures into the cluster's fault and the request's:
+     *
+     * <ul>
+     *   <li>{@link SearchUnavailableException}: an {@link IOException} without an HTTP status (connection refused, socket
+     *       or connect timeout), or any 429 or 5xx, whether the client parsed an Elasticsearch error body
+     *       ({@link ElasticsearchException}) or not ({@link TransportException}).
+     *   <li>Unchanged: an {@link ElasticsearchException} with another status (404 missing index or document, 400 mapping
+     *       rejection), which callers such as {@link #delete} inspect.
+     *   <li>{@link UncheckedIOException}: a {@link TransportException} with another HTTP status.
+     * </ul>
+     */
+    static <T> T call(EsCall<T> call) {
         try {
             return call.run();
+        } catch (TransportException e) {
+            if (e.statusCode() > 0 && !isUnavailable(e.statusCode())) {
+                throw new UncheckedIOException(e);
+            }
+            throw new SearchUnavailableException("Elasticsearch unavailable: HTTP " + e.statusCode(), e);
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new SearchUnavailableException(
+                    "Elasticsearch unreachable: " + e.getClass().getSimpleName(), e);
+        } catch (ElasticsearchException e) {
+            if (isUnavailable(e.status())) {
+                throw new SearchUnavailableException("Elasticsearch unavailable: HTTP " + e.status(), e);
+            }
+            throw e;
         }
+    }
+
+    /** 429: the cluster sheds load (e.g. a full write queue); 5xx: it failed. Both pass once it recovers. */
+    static boolean isUnavailable(int httpStatus) {
+        return httpStatus == 429 || httpStatus >= 500;
     }
 }

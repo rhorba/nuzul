@@ -16,7 +16,8 @@ import org.springframework.util.backoff.BackOff;
 
 /**
  * What every {@code @KafkaListener} does when its handler throws (Boot wires this single {@link CommonErrorHandler}
- * bean into the default listener container factory): retry the record in place with exponential backoff (3 retries,
+ * bean into the default listener container factory; a listener on its own factory starts from the same handler via
+ * {@link ListenerErrorHandlers}): retry the record in place with exponential backoff (3 retries,
  * after 0.5 s, 1 s and 2 s), then publish it to {@code <topic>.DLT}, same partition, with its original key, value and
  * headers plus Spring's {@code kafka_dlt-*} headers, and move on. Of the exception headers only the class names are
  * kept: exception messages and stack traces are excluded, because a handler's error text (an SMTP rejection quoting
@@ -44,7 +45,7 @@ class KafkaConsumerConfig {
     @Bean
     CommonErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, String> kafka, @Value(OutboxTopicsConfig.PARTITIONS) int partitions) {
-        return errorHandler(deadLetterRecoverer(kafka, partitions), backOff());
+        return ListenerErrorHandlers.standard(kafka, partitions);
     }
 
     static DeadLetterPublishingRecoverer deadLetterRecoverer(KafkaTemplate<String, String> kafka, int partitions) {

@@ -371,3 +371,19 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - Quality fixes (orchestrator): M1 V6 index room_type(hotel_id); L2 comments: order not load-bearing (append-time vs commit-time); L4 date_trunc on ::timestamp (TZ-free); L5 removed duplicate existsOwned/isOwnedBy override
 - Carry to B3: consumer takes hotelId from payload (legacy room_type-keyed rows), never compares occurredAt; MinPrices "today" from shared Clock (Africa/Casablanca)
 - Tests: 335 unit + 141 IT (6 affected suites) green
+
+### [2026-11-26] [EXECUTE] — 3.2 B3 dispatched to implementer (search-indexer listener, HotelDocument assembler, reindex endpoint with advisory try-lock + outbox catch-up)
+### [2026-11-26] [EXECUTE] — 3.2 B3 implemented (mvnw verify: 364 unit + 284 IT green, JaCoCo 98.8% line); dispatched to spec-reviewer
+- Deviations: ITs start search-indexer via KafkaListenerEndpointRegistry + drive relay by hand (no new context); catch-up IT weak by nature, logic proven in ReindexServiceTest
+- Noticed: SecurityConfig comment promises a reindex request matcher that doesn't exist; ES container 60 s startup wait borderline (2 flaky runs)
+### [2026-11-26] [EXECUTE] — 3.2 B3 spec PASS (notes: catch-up IT could use a divergent doc; unknown-type w/o event-id → DLT); dispatched to quality-reviewer
+### [2026-11-26] [EXECUTE] — 3.2 B3 quality FAIL r1
+- HIGH: one JPA tx around reindex → catch-up find() returns the persistence-context copy loaded during paging (stale name/status written to ES; also memory growth + dirty-checking). Fix: lock on its own tx/connection, catalog reads in their own short tx; IT editing a hotel mid-reindex.
+- MEDIUM: ES outage > ~3.5 s dead-letters catalog events (no replay/alert) → raised with owner; MEDIUM: unbounded sync request/long tx (resolved by HIGH fix)
+- LOWs sent back too: catch-up IT premise, start from DB clock, SecurityConfig matcher, ES container startup timeout 3 min
+### [2026-11-26] [EXECUTE] — 3.2 B3 r1 fixes done (mvnw verify: 380 unit + 287 IT green, JaCoCo 98.2% line); quality r2 dispatched
+- Lock: session pg_try_advisory_lock on a dedicated DataSource connection (runExclusively), reads in their own short txs; start from DB clock_timestamp(); SecurityConfig PLATFORM_ADMIN matcher; ES startup 3 min
+- New IT catchUpAppliesEditsMadeAfterThePagesWereRead fails with old @Transactional (proven), passes now
+- ES outage: SearchUnavailableException classified in adapter; search-indexer factory with unbounded 1s→30s backoff; shared ListenerErrorHandlers
+### [2026-11-26] [EXECUTE] — 3.2 B3 done (quality r2 PASS)
+- Open mediums: M1 alias missing (ES cold start beats one-shot bootstrap) → upsert/delete 404 → DLT; M2 permanent 5xx stalls partition silently (accepted trade-off, needs WARN/lag alert). Lows: PG outage → DLT, session lock vs idle_session_timeout/PgBouncer, orphan hotels-<ts> indices, abort-path/exception-change tests, SwapHook thread-local.

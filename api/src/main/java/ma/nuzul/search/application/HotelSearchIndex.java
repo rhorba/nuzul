@@ -7,6 +7,9 @@ import java.util.UUID;
  * Out-port for the hotel search index (story 3.2). Reads and live writes go through an alias, so a full reindex can
  * build a fresh index beside the live one and swap it in atomically ({@link #createIndex()}, {@link #bulkIndex},
  * {@link #switchAliasTo}) without searches ever seeing a half-built index.
+ *
+ * <p>Every method throws {@link SearchUnavailableException} when the cluster is unreachable, times out, or answers
+ * 429 or 5xx; any other failure is the request's own.
  */
 public interface HotelSearchIndex {
 
