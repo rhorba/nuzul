@@ -393,3 +393,9 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 ### [2026-11-26] [EXECUTE] — 3.2 B4 code spec PASS (note: setRetryListeners replaces — spring-kafka 4.1.2 has no addRetryListener; fine while shared handler registers none); quality review dispatched
 ### [2026-11-26 11:25] [CI] — PR #14 opened (feature/3.2-search-index @ bc8f76b); watching checks
 ### [2026-11-26 11:35] [CI] — PR #14 run 45809538789 RED: HotelDocumentAssemblerTest (CI JDK tzdata resolves Africa/Casablanca to UTC+0 → "today" Nov 30 not Dec 1; same class of issue as story 1.x). Fix: fixed ZoneOffset.ofHours(1) in the test; test green locally. ITs not reached in that run.
+### [2026-11-26 11:50] [CI] — PR #14 run 45810197907 GREEN (api verify + Sonar 6m10s, images build + Trivy 3m54s, web 29s) @ ae89684
+
+### [2026-11-26 11:50] [SHIP] — Story 3.2 ES hotels index + search-indexer + alias-swap reindex
+- Summary: feature/3.2-search-index @ ae89684, PR #14 (https://github.com/rhorba/nuzul/pull/14), CI green; awaiting owner merge
+- Video: n/a — no user-facing UI change (backend + admin endpoint; search UI is a later story)
+- Status: complete
