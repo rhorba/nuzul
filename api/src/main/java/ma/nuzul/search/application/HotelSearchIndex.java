@@ -15,11 +15,15 @@ public interface HotelSearchIndex {
 
     /**
      * Full replace of the hotel's document in the aliased index (fields missing from {@code document} are dropped).
-     * Throws when the alias does not exist, instead of letting Elasticsearch auto-create an index under its name.
+     * When the alias does not exist, creates it as {@link #ensureAliasExists()} does and writes once more, never
+     * letting Elasticsearch auto-create an index under its name; throws when that second write fails too.
      */
     void upsert(HotelDocument document);
 
-    /** Removes the hotel from the aliased index; no error when it is not there. */
+    /**
+     * Removes the hotel from the aliased index; no error when it is not there. Creates a missing alias first, like
+     * {@link #upsert}.
+     */
     void delete(UUID hotelId);
 
     /** Creates an empty, unaliased {@code hotels-<UTC timestamp>} index with the hotel mapping; returns its name. */
@@ -32,8 +36,9 @@ public interface HotelSearchIndex {
     void bulkIndex(String index, List<HotelDocument> documents);
 
     /**
-     * Points the alias at {@code index} only and deletes the indices it pointed at before, all in one atomic aliases
-     * request: either the swap and the deletes all happen, or none does.
+     * Points the alias at {@code index} only and deletes the indices it pointed at before, plus unaliased indices an
+     * interrupted earlier reindex left behind (those {@link #createIndex()} made before {@code index}), all in one
+     * atomic aliases request: either the swap and the deletes all happen, or none does.
      */
     void switchAliasTo(String index);
 

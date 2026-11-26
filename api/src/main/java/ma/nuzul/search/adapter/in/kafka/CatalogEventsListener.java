@@ -33,8 +33,8 @@ import tools.jackson.databind.json.JsonMapper;
  * value or a payload without a valid {@code hotelId} ({@link InvalidEventPayloadException}) goes straight to the DLT
  * without touching {@code processed_event}. An event type this version does not know is skipped (debug log, nothing
  * claimed), so a producer can add event types to the topic before every consumer knows them. A failure inside the
- * handler rolls the claim back and is retried: an Elasticsearch outage until the cluster is back, anything else a few
- * times and then dead-lettered ({@link SearchIndexerKafkaConfig}).
+ * handler rolls the claim back and is retried: an Elasticsearch outage or a transient Postgres failure until it
+ * passes, anything else a few times and then dead-lettered ({@link SearchIndexerKafkaConfig}).
  *
  * <p>{@code app.search.listener.enabled=false} keeps the container from starting (the test default). The container id
  * is {@value #CONSUMER} so a test can start it through the listener registry.

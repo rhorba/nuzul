@@ -24,6 +24,11 @@ import org.springframework.stereotype.Component;
  * pool, so if the unlock fails or reports the lock was not held, the connection is aborted rather than returned:
  * closing the physical connection ends the session, which releases the lock. A crashed instance's connection closes
  * the same way.
+ *
+ * <p>Assumes a direct connection to Postgres, one session per pooled connection, for as long as a reindex runs.
+ * Behind a PgBouncer in transaction pooling mode, the lock and the unlock could run on different server sessions (the
+ * lock then leaks, or another client's session holds it); and an {@code idle_session_timeout} shorter than a reindex
+ * would end this idle session, releasing the lock while the work still runs, so a second reindex could start.
  */
 @Component
 class JdbcReindexLock implements ReindexLockPort {

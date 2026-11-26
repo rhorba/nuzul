@@ -94,3 +94,6 @@ Rationale: market data — Angular 35/53, React 21/53, gaps MongoDB 13, AWS 12, 
 ### [2026-11-26] [DECISION] — 3.2 B3 search-indexer retries ES outages
 - Options: own error handler with capped backoff for ES transport errors / runbook only / defer.
 - Chosen by owner: retry longer. Poison payloads still go straight to DLT. Cost: partition blocks while ES is down (acceptable: search is eventually consistent, catalog writes unaffected).
+
+### [2026-11-26] [DECISION] — 3.2 B4 scope: owner picked all four review leftovers
+- Missing-alias self-heal; rate-limited WARN on outage retries; orphan <alias>-* index cleanup on swap; transient Postgres errors retried like ES outages in search-indexer.

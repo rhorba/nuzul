@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import ma.nuzul.search.application.HotelDocument;
 import ma.nuzul.search.application.HotelSearchIndex;
@@ -44,6 +46,13 @@ import org.slf4j.LoggerFactory;
  * concrete index named like the alias, with guessed field types, and every later attempt to create the alias would
  * fail with {@code invalid_alias_name_exception}.
  *
+ * <p>A live write that finds the alias missing ({@code index_not_found_exception} on it: Elasticsearch came up after
+ * the one-shot startup bootstrap, or its data was wiped) creates it ({@link #ensureAliasExists()}) and retries once;
+ * a second failure propagates. This lives here rather than in {@code HotelIndexSync} because "the alias is missing"
+ * is only recognisable from Elasticsearch's error type, which the port does not expose, and the race-safe create is
+ * already here. The fresh index is empty: documents written before the loss come back with their next change or the
+ * next reindex. The reindex path is untouched: {@link #bulkIndex} targets a concrete index.
+ *
  * <p>Writes use the default refresh (none): a document shows in searches after the next periodic refresh (about 1 s).
  */
 class ElasticsearchHotelSearchIndex implements HotelSearchIndex {
@@ -56,6 +65,8 @@ class ElasticsearchHotelSearchIndex implements HotelSearchIndex {
     /** Item errors quoted in a bulk failure message; the rest are only counted. */
     static final int MAX_REPORTED_FAILURES = 10;
 
+    private static final String INDEX_NOT_FOUND = "index_not_found_exception";
+
     private static final Logger log = LoggerFactory.getLogger(ElasticsearchHotelSearchIndex.class);
 
     /** Lowercase only, as index names must be: hotels-20261225-143005-123. */
@@ -66,31 +77,64 @@ class ElasticsearchHotelSearchIndex implements HotelSearchIndex {
     private final String alias;
     private final Clock clock;
     private final byte[] mapping;
+    /** Names {@link #newIndexName()} makes: fixed width, so their string order is their time order. */
+    private final Pattern reindexName;
 
     ElasticsearchHotelSearchIndex(ElasticsearchClient client, String alias, Clock clock) {
         this.client = client;
         this.alias = alias;
         this.clock = clock;
         this.mapping = loadMapping();
+        this.reindexName = Pattern.compile(Pattern.quote(alias) + "-\\d{8}-\\d{6}-\\d{3}");
     }
 
     @Override
     public void upsert(HotelDocument document) {
-        call(() -> client.index(i ->
-                i.index(alias).requireAlias(true).id(document.id().toString()).document(source(document))));
+        creatingMissingAlias(() -> call(() -> client.index(i ->
+                i.index(alias).requireAlias(true).id(document.id().toString()).document(source(document)))));
     }
 
     @Override
     public void delete(UUID hotelId) {
         try {
-            call(() -> client.delete(d -> d.index(alias).id(hotelId.toString())));
+            creatingMissingAlias(() ->
+                    call(() -> client.delete(d -> d.index(alias).id(hotelId.toString()))));
         } catch (ElasticsearchException e) {
-            // An absent document is a 404; an absent index is a 404 too, but that is a broken setup, so it still fails.
-            if (e.status() != 404
-                    || "index_not_found_exception".equals(e.error().type())) {
+            // An absent document is a 404 and fine. An absent index is a 404 too, but only after creating the alias
+            // and retrying failed, so it still fails.
+            if (e.status() != 404 || isIndexNotFound(e)) {
                 throw e;
             }
         }
+    }
+
+    /**
+     * Runs {@code write} against the alias; when the alias is missing, creates it and runs {@code write} once more. A
+     * DELETE never auto-creates an index, and an index request with {@code require_alias} neither, so the first
+     * attempt changed nothing.
+     */
+    private <T> T creatingMissingAlias(Supplier<T> write) {
+        try {
+            return write.get();
+        } catch (ElasticsearchException e) {
+            if (!isIndexNotFound(e)) {
+                throw e;
+            }
+            log.warn("Search alias '{}' is missing; creating it and retrying the write once", alias);
+            try {
+                ensureAliasExists();
+            } catch (RuntimeException createFailure) {
+                createFailure.addSuppressed(e);
+                throw createFailure;
+            }
+            return write.get();
+        }
+    }
+
+    private static boolean isIndexNotFound(ElasticsearchException e) {
+        return e.status() == 404
+                && e.error() != null
+                && INDEX_NOT_FOUND.equals(e.error().type());
     }
 
     @Override
@@ -137,15 +181,33 @@ class ElasticsearchHotelSearchIndex implements HotelSearchIndex {
 
     @Override
     public void switchAliasTo(String index) {
+        List<String> aliased = aliasedIndices();
         List<String> previous =
-                aliasedIndices().stream().filter(name -> !name.equals(index)).toList();
+                aliased.stream().filter(name -> !name.equals(index)).toList();
+        List<String> leftovers = indicesNamedLikeAlias().stream()
+                .filter(name -> !name.equals(index) && !aliased.contains(name) && isOlderReindexIndex(name, index))
+                .toList();
+        if (!leftovers.isEmpty()) {
+            log.info("Deleting indices {} left over from an interrupted reindex", leftovers);
+        }
         // remove_index deletes the old index inside the same atomic request (taking its alias with it), so a failure
-        // can never leave the alias swapped but the old index orphaned.
+        // can never leave the alias swapped but the old index orphaned. Leftovers of a reindex that died before its
+        // swap go in the same request: nothing else would ever delete them.
         call(() -> client.indices().updateAliases(u -> {
             u.actions(a -> a.add(add -> add.index(index).alias(alias).isWriteIndex(true)));
             previous.forEach(old -> u.actions(a -> a.removeIndex(r -> r.index(old))));
+            leftovers.forEach(old -> u.actions(a -> a.removeIndex(r -> r.index(old))));
             return u;
         }));
+    }
+
+    /**
+     * True when both names are ones {@link #newIndexName()} makes and {@code name} was made before {@code index}.
+     * Conservative: a newer index could be another reindex still filling (reindex is single-flight under its lock, but
+     * a lock lost with its connection would let two overlap), and a hand-made index has unknown purpose; both are kept.
+     */
+    private boolean isOlderReindexIndex(String name, String index) {
+        return reindexName.matcher(name).matches() && reindexName.matcher(index).matches() && name.compareTo(index) < 0;
     }
 
     @Override
@@ -164,6 +226,7 @@ class ElasticsearchHotelSearchIndex implements HotelSearchIndex {
         List<String> strays = indicesNamedLikeAlias();
         if (!strays.isEmpty()) {
             // Left over from an interrupted reindex or by hand. Not adopted: their content and mapping are unknown.
+            // The next reindex's swap deletes the reindex leftovers among them; hand-made ones stay until removed.
             log.warn(
                     "Search alias '{}' is missing but indices {} exist; creating a fresh aliased index", alias, strays);
         }

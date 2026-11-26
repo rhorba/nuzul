@@ -31,6 +31,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.sql.DataSource;
 import ma.nuzul.TestcontainersConfiguration;
 import ma.nuzul.search.application.HotelDocument;
@@ -270,8 +272,14 @@ class ReindexIT {
 
         @Override
         public void switchAliasTo(String index) {
-            // Another thread: never inside whatever the reindex itself is running in.
-            CompletableFuture.runAsync(beforeSwap).join();
+            // Another thread: never inside whatever the reindex itself is running in. A dedicated one rather than the
+            // common pool, which other code in the JVM shares and may have saturated.
+            ExecutorService editor = Executors.newSingleThreadExecutor();
+            try {
+                CompletableFuture.runAsync(beforeSwap, editor).join();
+            } finally {
+                editor.shutdownNow();
+            }
             delegate.switchAliasTo(index);
         }
 

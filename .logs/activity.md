@@ -387,3 +387,7 @@ Constraints: actions pinned by SHA; helm/terraform/E2E jobs deferred (folders do
 - ES outage: SearchUnavailableException classified in adapter; search-indexer factory with unbounded 1s→30s backoff; shared ListenerErrorHandlers
 ### [2026-11-26] [EXECUTE] — 3.2 B3 done (quality r2 PASS)
 - Open mediums: M1 alias missing (ES cold start beats one-shot bootstrap) → upsert/delete 404 → DLT; M2 permanent 5xx stalls partition silently (accepted trade-off, needs WARN/lag alert). Lows: PG outage → DLT, session lock vs idle_session_timeout/PgBouncer, orphan hotels-<ts> indices, abort-path/exception-change tests, SwapHook thread-local.
+### [2026-11-26] [EXECUTE] — 3.2 B3 committed fc59d71; B4 code fixes dispatched to implementer, docs inline
+### [2026-11-26] [EXECUTE] — 3.2 B4 docs: database §5 as-built + V6, ADR-7 (alias swap + outbox catch-up), security role/route table, test strategy §Search index
+### [2026-11-26] [EXECUTE] — 3.2 B4 code fixes implemented (mvnw verify: 393 unit + 289 IT green, JaCoCo 98.4% line / 92.7% branch); spec review dispatched
+### [2026-11-26] [EXECUTE] — 3.2 B4 code spec PASS (note: setRetryListeners replaces — spring-kafka 4.1.2 has no addRetryListener; fine while shared handler registers none); quality review dispatched

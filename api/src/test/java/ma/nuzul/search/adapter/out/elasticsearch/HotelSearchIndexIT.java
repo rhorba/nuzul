@@ -69,21 +69,41 @@ class HotelSearchIndexIT {
     }
 
     @Test
-    void upsertWithoutTheAliasThrowsAndCreatesNoIndex() throws IOException {
+    void upsertWithoutTheAliasCreatesItAndWritesTheDocument() throws IOException {
         var hotel = hotel("Riad Atlas", null, null, null, Map.of());
 
-        assertThatThrownBy(() -> index.upsert(hotel)).isInstanceOf(ElasticsearchException.class);
+        index.upsert(hotel);
 
-        assertThat(client.indices().exists(e -> e.index(alias)).value()).isFalse();
-        index.ensureAliasExists();
-        assertThat(adapter().aliasedIndices()).hasSize(1);
+        assertThat(adapter().aliasedIndices()).singleElement().asString().startsWith(alias + "-");
+        assertThat(hotelIndices()).isEqualTo(adapter().aliasedIndices()); // no concrete index named like the alias
+        assertThat(get(hotel.id())).containsEntry("name", "Riad Atlas");
     }
 
     @Test
-    void deleteWithoutTheAliasThrows() {
-        assertThatThrownBy(() -> index.delete(UUID.randomUUID()))
-                .isInstanceOf(ElasticsearchException.class)
-                .hasMessageContaining("index_not_found_exception");
+    void upsertAfterTheIndicesWereWipedRecreatesTheAlias() throws IOException {
+        index.ensureAliasExists();
+        index.upsert(hotel("Riad Atlas", null, null, null, Map.of()));
+        dropAllHotelIndices(); // data wiped under a running indexer
+        var hotel = hotel("Dar Fes", null, null, null, Map.of());
+
+        index.upsert(hotel);
+
+        assertThat(adapter().aliasedIndices()).hasSize(1);
+        assertThat(get(hotel.id())).containsEntry("name", "Dar Fes");
+    }
+
+    @Test
+    void deleteWithoutTheAliasCreatesItAndSucceeds() throws IOException {
+        index.ensureAliasExists();
+        var hotel = hotel("Riad Atlas", null, null, null, Map.of());
+        index.upsert(hotel);
+        dropAllHotelIndices();
+
+        assertThatCode(() -> index.delete(hotel.id())).doesNotThrowAnyException();
+
+        assertThat(adapter().aliasedIndices()).hasSize(1);
+        assertThat(hotelIndices()).isEqualTo(adapter().aliasedIndices());
+        assertThat(exists(hotel.id())).isFalse();
     }
 
     @Test
@@ -104,6 +124,23 @@ class HotelSearchIndexIT {
 
         assertThat(adapter().aliasedIndices()).containsExactly(fresh);
         assertThat(hotelIndices()).containsExactly(fresh);
+    }
+
+    @Test
+    void switchAliasToAlsoDeletesOlderLeftoverIndicesButKeepsNewerAndHandMadeOnes() throws IOException {
+        index.ensureAliasExists();
+        String live = adapter().aliasedIndices().getFirst();
+        String crashedReindex = createEmptyIndex(alias + "-20000101-000000-000"); // older than any index made now
+        String newer = createEmptyIndex(alias + "-29991231-235959-999"); // could be a concurrent reindex's: kept
+        String handMade = createEmptyIndex(alias + "-broken"); // not a reindex name: kept
+        String fresh = index.createIndex();
+
+        index.switchAliasTo(fresh);
+
+        assertThat(adapter().aliasedIndices()).containsExactly(fresh);
+        assertThat(hotelIndices())
+                .containsExactlyInAnyOrder(fresh, newer, handMade)
+                .doesNotContain(live, crashedReindex);
     }
 
     @Test
@@ -311,6 +348,11 @@ class HotelSearchIndexIT {
                 .create(c -> c.index(broken)
                         .withJson(new StringReader("{\"mappings\":{\"dynamic\":\"strict\",\"properties\":{}}}")));
         return broken;
+    }
+
+    private String createEmptyIndex(String name) throws IOException {
+        client.indices().create(c -> c.index(name));
+        return name;
     }
 
     private ElasticsearchHotelSearchIndex adapter() {
